@@ -5,7 +5,6 @@ import { BagCount } from './BagCount';
 const NAV = [
   { href: '/', label: 'Live drop' },
   { href: '/pulse', label: 'The Pulse' },
-  { href: '/causes', label: 'Causes' },
   { href: '/artists', label: 'Artists' },
   { href: '/how-it-works', label: 'How it works' },
 ];
@@ -59,7 +58,7 @@ export function Header({ signedIn, handle, isAdmin, isArtist, unread }: {
 }
 
 function Ticker() {
-  const line = 'NEW DROP EVERY MONDAY ✦ VOTE ✦ BACK EARLY ✦ TOP 3 PRINT FRIDAY ✦ 15% OF PROFIT TO A CAUSE ✦ ';
+  const line = 'NEW DROP EVERY MONDAY ✦ VOTE ✦ BACK EARLY ✦ TOP 3 PRINT FRIDAY ✦ EVERY TEE PAYS ITS ARTIST ✦ ';
   return (
     <div className="bg-ink text-acid h-9 overflow-hidden flex items-center border-t-2 border-ink" aria-hidden="true">
       <div className="flex whitespace-nowrap font-display text-[17px] tracking-[2px] animate-tick">

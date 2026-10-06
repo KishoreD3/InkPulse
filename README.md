@@ -4,7 +4,7 @@ Weekly community-voted t-shirt drops. One codebase is both the **website** and t
 
 - **Monday**: drop opens. **Thursday 23:59 IST**: voting locks and the top 3 win. **Friday**: winners go to print.
 - Early backers lock **₹899** (₹1,099 after 5,000 votes or after the drop). Backers are **debited only if the design prints**.
-- **15% of net profit** from every drop goes to a cause the community votes on, published with receipts.
+- **Artist-first:** every tee pays the artist who drew it a fixed % of its price (default 15%, set in Admin → Settings) — winners, retail window and reprints.
 - **Curated entry**: every design is human-reviewed before it can reach the leaderboard.
 
 Stack: Next.js 14 (App Router, TypeScript, Tailwind) · Supabase (Postgres, Auth, Storage, Realtime) · Razorpay · Resend (email) · Web Push · any WhatsApp BSP · Vercel.
@@ -15,16 +15,16 @@ Stack: Next.js 14 (App Router, TypeScript, Tailwind) · Supabase (Postgres, Auth
 
 | Area | What works |
 |---|---|
-| Shoppers | Live board with realtime vote counts, print line, early-backer meter, category filters · design page with colourway/size pickers and tee mockups · backing checkout (Razorpay, manual capture) · bag + checkout for printed winners · order tracking · The Pulse feed (posts, likes, comments, reposts, reports) · cause vote + public impact ledger · artist profiles, follow · search · notifications centre · profile, addresses, phone verification · install-app + push opt-in |
+| Shoppers | Live board with realtime vote counts, print line, early-backer meter, category filters · design page with colourway/size pickers and tee mockups · backing checkout (Razorpay, manual capture) · bag + checkout for printed winners · order tracking · The Pulse feed (posts, likes, comments, reposts, reports) · artists directory + public “artists, paid” scoreboard · artist profiles, follow · search · notifications centre · profile, addresses, phone verification · install-app + push opt-in |
 | Artists | Become-an-artist flow · 5-step submit wizard (upload ≥4500×5400 PNG/SVG, live mockup preview, colours, originality terms) · studio with statuses, votes, backers, earnings, payout details (PAN/UPI/bank) · share kit |
-| Admin | Dashboard (voters, backers, reserved ₹, conversion, alerts) · curated submissions queue with reverse-image-search link · drops (line-up, cause, next-cause shortlist, manual open/lock/print/ship) · orders + print summary + AWB entry + refunds · per-drop financials (net profit → cause amount) + payout recording with receipt upload · artist KYC + payouts · moderation · users (artist/admin/ban) · all business numbers in Settings |
+| Admin | Dashboard (voters, backers, reserved ₹, conversion, alerts) · curated submissions queue with reverse-image-search link · drops (line-up, manual open/lock/print/ship) · orders + print summary + AWB entry + refunds · per-drop financials (revenue, costs, paid to artists, net profit) · artist KYC + payouts · moderation · users (artist/admin/ban) · all business numbers in Settings |
 | Automation | `/api/cron/tick` every 15 min: opens Monday drops, locks Thursday, ranks, captures winners / releases losers, sends Friday print batch, dispatches notifications. Idempotent — safe to re-run. |
 | Notifications | In-app always; push (VAPID), email (Resend) and WhatsApp (generic BSP adapter) per user preference |
 | Safety | Row Level Security on every table · browser can only write its own rows/columns · votes only via `cast_vote()` (phone-verified, rate-limited, one per design) · money and drop changes only server-side with the service role · signed Razorpay callbacks + webhooks, idempotent · admin actions audit-logged |
 
 ### What was verified here
 - `npm run typecheck`, `npm run lint` and `npm run build` pass.
-- `npm run db:test` applies all migrations + seed to a real Postgres 16 and runs `supabase/tests/smoke.sql`: voting, idempotency, withdraw, rate limit, phone-verification guard, RLS guards, price quotes, backer counts, Thursday lock + ranking + tie-break, cause vote roll-over, artist earnings, net-profit maths, Monday open, IST scheduling.
+- `npm run db:test` applies all migrations + seed to a real Postgres 16 and runs `supabase/tests/smoke.sql`: voting, idempotency, withdraw, rate limit, phone-verification guard, RLS guards, price quotes, backer counts, Thursday lock + ranking + tie-break, artist earnings, net-profit maths, Monday open, IST scheduling.
 - Screens were rendered and checked at 390 px and 1440 px.
 
 ### What needs your accounts before it is live (not testable without your keys)
@@ -96,17 +96,17 @@ npm run dev        # http://localhost:3000
 Mon 00:00 IST  open_due_drops()    approved designs in the drop go live, counters reset, next drop scheduled
 Mon–Thu        cast_vote()         phone-verified, 1 per design, rate-limited; realtime counts on the board
                checkout            backing = Razorpay order with manual capture → order "backed"
-Thu 23:59 IST  lock_due_drops()    rank by votes (tie → reached count first), top N won, cause vote → next drop
+Thu 23:59 IST  lock_due_drops()    rank by votes (tie → reached count first), top N won
                settleBackings()    capture winners → "won"; leave losers uncaptured → "released"
 Fri 10:00 IST  printDueDrops()     all captured/paid, unbatched orders → print batch (CSV or partner API) → "printing"
-Admin          AWB → "shipped" → "delivered"; financials → cause payout + receipt → ledger
+Admin          AWB → "shipped" → "delivered"; Money page shows each drop's numbers
 ```
 Everything above can also be triggered from **Admin → Drops** (useful for launch week).
 
 ## Money
 - Prices, threshold, winners, shares, costs and GST live in **Admin → Settings**.
 - **Before launch**, set `unit_cost` (blank + DTG + packaging), `shipping_cost`, `artist_pct` and confirm `gst_pct`/HSN with your CA. While these are 0 the admin shows warnings and net profit is overstated.
-- Net profit per drop = captured revenue − GST − product cost − shipping cost − gateway fees − artist share. Cause amount = `cause_pct_of_profit` of that.
+- Net profit per drop = captured revenue − GST − product cost − shipping cost − gateway fees − artist share. Artist share = `artist_pct` of each captured tee's price before GST, accrued per item and paid out from Admin → Artist payouts.
 
 ## Project map
 ```

@@ -76,19 +76,6 @@ export async function toggleFollow(artistId: string, follow: boolean): Promise<R
   return { ok: true };
 }
 
-export async function voteCause(causeId: string): Promise<Result> {
-  const session = await getSession();
-  if (!session) return { ok: false, error: 'Sign in to vote.' };
-  const { error } = await createClient().rpc('vote_cause', { p_cause: causeId });
-  if (error) {
-    if (error.message.includes('phone_not_verified')) return { ok: false, error: 'Verify your phone number to vote.' };
-    if (error.message.includes('voting_locked')) return { ok: false, error: 'The cause vote for this drop is closed.' };
-    return { ok: false, error: 'Could not record your vote.' };
-  }
-  revalidatePath('/causes');
-  return { ok: true };
-}
-
 export async function markAllRead(): Promise<Result> {
   const session = await getSession();
   if (!session) return { ok: false, error: 'Sign in.' };

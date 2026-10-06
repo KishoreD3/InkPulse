@@ -1,12 +1,12 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Bag, Bolt, Heart, Plus, Pulse } from './Icons';
+import { Bag, Bolt, Brush, Plus, Pulse } from './Icons';
 
 const TABS = [
   { href: '/', label: 'LIVE', Icon: Bolt },
   { href: '/pulse', label: 'PULSE', Icon: Pulse },
-  { href: '/causes', label: 'CAUSES', Icon: Heart },
+  { href: '/artists', label: 'ARTISTS', Icon: Brush },
   { href: '/bag', label: 'BAG', Icon: Bag },
 ];
 

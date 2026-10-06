@@ -115,7 +115,6 @@ do $$ begin
   assert (select string_agg(slug, ',' order by final_rank) from public.designs where status = 'won' and drop_id = '44444444-4444-4444-8444-000000000042')
          = 'kolam-grid,expiry-thursday,theta-decay', 'top 3 by votes';
   assert (select status from public.designs where slug = 'monsoon-static') = 'lost', 'rank 4 lost';
-  assert (select cause_id from public.drops where number = 43) = '33333333-3333-4333-8333-000000000004', 'cause vote rolled into next drop';
   assert exists (select 1 from public.notifications where kind = 'design_won'), 'artists told';
   assert exists (select 1 from public.posts where body like 'DROP 042 RESULTS%'), 'results posted';
   begin
@@ -146,7 +145,7 @@ begin
   select * into f from public.drop_financials('44444444-4444-4444-8444-000000000042');
   assert f.revenue = 899 and f.units = 1, 'revenue counted';
   assert f.net_profit = 899 - f.gst - 380 - 70 - f.gateway_fees - f.artist_share, 'net profit math';
-  assert f.cause_amount = round(f.net_profit * 0.15), 'cause = 15% of net profit';
+  assert f.cause_amount = 0, 'no cause share';
 end $$;
 
 -- ─── Monday open ──────────────────────────────────────────────────────
@@ -171,6 +170,8 @@ end $$;
 
 -- Public aggregates
 do $$ begin
+  assert (select earned from public.artist_totals()) > 0, 'artist earnings totalled';
+  assert (select count(*) from public.top_artists()) >= 1, 'top artists listed';
   assert (select total_given from public.impact_totals()) = 54600, 'impact totals sum published payouts';
   assert (select count(*) from public.cause_vote_tally('44444444-4444-4444-8444-000000000042')) = 3, 'tally lists shortlist';
   assert (select printed from public.artist_stats('11111111-1111-4111-8111-000000000001')) = 1, 'artist stats';

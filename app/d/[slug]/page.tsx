@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { DESIGN_SELECT, getSettings } from '@/lib/data';
 import { getSession } from '@/lib/auth';
-import { dropLabel, inr, timeAgo } from '@/lib/format';
+import { artistCut, dropLabel, inr, timeAgo } from '@/lib/format';
 import { BuyBox } from '@/components/BuyBox';
 import { Avatar } from '@/components/PostCard';
 import { CommentForm } from '@/components/CommentForm';
@@ -155,20 +155,35 @@ export default async function DesignPage({ params }: { params: { slug: string } 
             </section>
           )}
 
-          <section className="border-2 border-dashed border-ink rounded-[18px] p-4 flex flex-col gap-2.5">
-            <h2 className="font-display text-xl tracking-wide">WHERE YOUR {quote ? inr(quote.price) : 'MONEY'} GOES</h2>
-            <div className="flex h-5 border-2 border-ink rounded-md overflow-hidden" aria-hidden>
-              <div className="flex-[55] bg-ink border-r-2 border-ink" /><div className="flex-[20] bg-pink border-r-2 border-ink" /><div className="flex-[25] bg-cobalt" />
-            </div>
-            <ul className="text-sm flex flex-col gap-1">
-              <li className="flex justify-between"><span>DTG print, shipping, ops</span><strong>{settings.unit_cost ? inr(settings.unit_cost + settings.shipping_cost) : '[₹ COST]'}</strong></li>
-              <li className="flex justify-between"><span>@{design.artist?.handle} (artist)</span><strong>{settings.artist_pct ? `${settings.artist_pct}%` : '[ARTIST %]'}</strong></li>
-              <li className="flex justify-between"><span>Net profit</span><strong>Rest</strong></li>
-            </ul>
-            <p className="text-sm bg-cobalt text-white border-2 border-ink rounded-xl p-3">
-              {settings.cause_pct_of_profit}% of our net profit on every drop funds this drop’s cause. The exact ₹ is printed on your receipt.
-            </p>
-          </section>
+          {(() => {
+            const price = quote?.price ?? settings.retail_price;
+            const gst = Math.round(price - price / (1 + settings.gst_pct / 100));
+            const artist = artistCut(price, settings.gst_pct, settings.artist_pct);
+            const making = settings.unit_cost + settings.shipping_cost;
+            const rest = Math.max(price - gst - artist - making, 0);
+            const parts = [
+              { k: `@${design.artist?.handle} (artist)`, v: artist, cls: 'bg-pink' },
+              { k: 'Blank, DTG print, packing, shipping', v: making, cls: 'bg-ink' },
+              { k: 'GST', v: gst, cls: 'bg-mist' },
+              { k: 'INKPULSE (payments, support, the platform)', v: rest, cls: 'bg-cobalt' },
+            ].filter((x) => x.v > 0);
+            return (
+              <section className="border-2 border-dashed border-ink rounded-[18px] p-4 flex flex-col gap-2.5">
+                <h2 className="font-display text-xl tracking-wide">WHERE YOUR {inr(price)} GOES</h2>
+                <div className="flex h-5 border-2 border-ink rounded-md overflow-hidden" aria-hidden>
+                  {parts.map((x) => <div key={x.k} className={`${x.cls} border-r-2 border-ink last:border-r-0`} style={{ flex: x.v }} />)}
+                </div>
+                <ul className="text-sm flex flex-col gap-1">
+                  {parts.map((x) => (
+                    <li key={x.k} className="flex justify-between gap-3"><span className="flex items-center gap-2"><span className={`w-3 h-3 border-2 border-ink rounded-sm ${x.cls}`} aria-hidden />{x.k}</span><strong>{inr(x.v)}</strong></li>
+                  ))}
+                </ul>
+                <p className="text-sm bg-pink border-2 border-ink rounded-xl p-3 font-semibold">
+                  @{design.artist?.handle} earns {inr(artist)} on this tee — and on every one after it, including reprints.
+                </p>
+              </section>
+            );
+          })()}
         </div>
       </div>
 

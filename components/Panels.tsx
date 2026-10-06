@@ -2,12 +2,12 @@ import Link from 'next/link';
 import { inr } from '@/lib/format';
 import { Shield } from './Icons';
 
-export function HowItWorksStrip({ backerPrice, retailPrice, winners }: { backerPrice: number; retailPrice: number; winners: number }) {
+export function HowItWorksStrip({ backerPrice, retailPrice, winners, artistPct }: { backerPrice: number; retailPrice: number; winners: number; artistPct: number }) {
   const steps = [
     ['01', 'Vote', 'New designs drop every Monday. Vote till Thursday.'],
     ['02', 'Back early', `Lock ${inr(backerPrice)} before 5,000 votes (${inr(retailPrice)} after). UPI AutoPay debits only if it prints.`],
     ['03', `Top ${winners} print`, 'Winners print Friday, made to order. Zero inventory.'],
-    ['04', '15% of profit', 'Goes to a cause you vote for. Paid with public receipts.'],
+    ['04', 'Artists get paid', `${artistPct}% of every tee goes straight to the artist who drew it.`],
   ];
   return (
     <section aria-label="How it works" className="bg-acid border-y-2 border-ink">
@@ -23,11 +23,12 @@ export function HowItWorksStrip({ backerPrice, retailPrice, winners }: { backerP
   );
 }
 
-export function ArtistPanel({ compact = false }: { compact?: boolean }) {
+export function ArtistPanel({ compact = false, artistPct }: { compact?: boolean; artistPct?: number }) {
   if (compact) {
     return (
       <section className="border-2 border-ink rounded-[18px] bg-pink shadow-hard p-4 flex flex-col gap-3">
         <p className="font-display text-[30px] leading-[0.95]">GOT A DESIGN?<br />GET PAID. ZERO RISK.</p>
+        {artistPct ? <p className="text-sm font-bold">You earn {artistPct}% of every tee sold — winners, reprints and back-by-demand runs.</p> : null}
         <div className="grid grid-cols-2 gap-2.5 text-[13px] leading-snug">
           <div className="bg-card border-2 border-ink rounded-xl p-2.5"><p className="label-mono pb-1">You bring</p>The art and your Insta / YouTube crowd</div>
           <div className="bg-ink text-white border-2 border-ink rounded-xl p-2.5"><p className="label-mono pb-1 text-acid">We handle</p>Payments, printing, shipping, support</div>
@@ -42,7 +43,7 @@ export function ArtistPanel({ compact = false }: { compact?: boolean }) {
         <div className="flex-[1_1_360px] flex flex-col gap-4">
           <span className="self-start -rotate-3 sticker bg-acid">For artists</span>
           <h2 className="h-display text-[clamp(48px,6vw,80px)] leading-[0.9]">Your art.<br />Your crowd.<br />Zero risk.</h2>
-          <p className="max-w-[460px] text-[17px] leading-relaxed">Turn your Instagram or YouTube following into income. No inventory, no upfront cost, no logistics. You earn on every winning shirt.</p>
+          <p className="max-w-[460px] text-[17px] leading-relaxed">Turn your Instagram or YouTube following into income. No inventory, no upfront cost, no logistics. You earn {artistPct ? `${artistPct}% of` : 'on'} every tee sold — the winning run, the retail window and every back-by-demand reprint.</p>
           <Link href="/submit" className="self-start btn-ink shadow-[5px_5px_0_#fff]">Submit for review</Link>
         </div>
         <div className="flex-[1_1_460px] min-w-0 grid grid-cols-2 gap-4">

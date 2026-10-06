@@ -20,6 +20,9 @@ const nextConfig = {
   images: {
     remotePatterns: [{ protocol: 'https', hostname: supabaseHost }],
   },
+  async redirects() {
+    return [{ source: '/causes', destination: '/artists', permanent: true }];
+  },
   async headers() {
     return [
       { source: '/(.*)', headers: securityHeaders },

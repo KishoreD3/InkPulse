@@ -1,7 +1,7 @@
 import 'server-only';
 import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
-import type { Cause, DesignWithArtist, Drop, Settings } from '@/lib/types';
+import type { DesignWithArtist, Drop, Settings } from '@/lib/types';
 
 export const DESIGN_SELECT = '*, artist:profiles!designs_artist_id_fkey(id, handle, name, avatar_url)';
 
@@ -47,12 +47,6 @@ export async function getRetailWinners(): Promise<DesignWithArtist[]> {
     .eq('status', 'won').gt('retail_until', new Date().toISOString())
     .order('retail_until', { ascending: false }).limit(8);
   return (data ?? []) as DesignWithArtist[];
-}
-
-export async function getCause(id: string | null): Promise<(Cause & { partner: { name: string } | null }) | null> {
-  if (!id) return null;
-  const { data } = await createClient().from('causes').select('*, partner:partners(name)').eq('id', id).maybeSingle();
-  return (data as Cause & { partner: { name: string } | null }) ?? null;
 }
 
 /** Rank designs the same way the database does at lock time. */

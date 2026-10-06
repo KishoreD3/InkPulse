@@ -45,7 +45,7 @@ export default async function CheckoutPage({ searchParams }: { searchParams: Rec
         } : null}
         initialCode={searchParams.code ?? null}
         rewards={rewards.map((r) => ({ code: r.code, label: describeCode(r) }))}
-        settings={{ retail_price: settings.retail_price, shipping_fee: settings.shipping_fee, free_shipping_over: settings.free_shipping_over, cause_pct: settings.cause_pct_of_profit, sizes: settings.sizes }}
+        settings={{ retail_price: settings.retail_price, shipping_fee: settings.shipping_fee, free_shipping_over: settings.free_shipping_over, artist_pct: settings.artist_pct, gst_pct: settings.gst_pct, sizes: settings.sizes }}
       />
     </div>
   );

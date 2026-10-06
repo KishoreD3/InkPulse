@@ -1,23 +1,19 @@
 import { createAdminClient } from '@/lib/supabase/server';
 import { dateTime, dropLabel } from '@/lib/format';
-import { createNextDrop, forceDropStep, scheduleDesign, updateDrop } from '@/app/actions/admin';
+import { createNextDrop, forceDropStep, scheduleDesign } from '@/app/actions/admin';
 import { ActionButton } from '@/components/admin';
 import { ActionForm, SubmitButton } from '@/components/forms';
-import type { Cause, Design, Drop } from '@/lib/types';
+import type { Design, Drop } from '@/lib/types';
 
 export const metadata = { title: 'Drops' };
 
 export default async function DropsAdmin() {
   const db = createAdminClient();
-  const [{ data: drops }, { data: causes }, { data: shortlist }, { data: approved }] = await Promise.all([
+  const [{ data: drops }, { data: approved }] = await Promise.all([
     db.from('drops').select('*').order('number', { ascending: false }).limit(12),
-    db.from('causes').select('*').eq('active', true).order('name'),
-    db.from('cause_shortlist').select('drop_id, cause_id'),
     db.from('designs').select('id, name, drop_id, artist:profiles!designs_artist_id_fkey(handle)').eq('status', 'approved'),
   ]);
   const list = (drops ?? []) as Drop[];
-  const cs = (causes ?? []) as Cause[];
-  const sl = (shortlist ?? []) as { drop_id: string; cause_id: string }[];
   const ready = (approved ?? []) as unknown as (Pick<Design, 'id' | 'name' | 'drop_id'> & { artist: { handle: string } })[];
   const scheduled = list.filter((d) => d.status === 'scheduled');
 
@@ -55,29 +51,6 @@ export default async function DropsAdmin() {
               {d.status === 'scheduled' && <span className="label-mono text-muted">{lineup} approved in line-up</span>}
             </div>
             <p className="font-mono text-xs text-body">Opens {dateTime(d.opens_at)} · Locks {dateTime(d.locks_at)} · Prints {dateTime(d.prints_at)}</p>
-            {['scheduled', 'live'].includes(d.status) && (
-              <ActionForm action={updateDrop} className="grid gap-3 md:grid-cols-2" success="Drop updated.">
-                <input type="hidden" name="id" value={d.id} />
-                <div>
-                  <label className="label-mono" htmlFor={`cause-${d.id}`}>This drop&apos;s cause</label>
-                  <select id={`cause-${d.id}`} name="causeId" defaultValue={d.cause_id ?? ''} className="input">
-                    <option value="">— none —</option>
-                    {cs.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                </div>
-                <fieldset>
-                  <legend className="label-mono">Next-cause shortlist (voted during this drop)</legend>
-                  <div className="flex flex-col gap-1 pt-1 max-h-40 overflow-auto">
-                    {cs.map((c) => (
-                      <label key={c.id} className="flex items-center gap-2 text-sm">
-                        <input type="checkbox" name="shortlist" value={c.id} defaultChecked={sl.some((x) => x.drop_id === d.id && x.cause_id === c.id)} />{c.name}
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
-                <SubmitButton className="chip-on self-start">Save causes</SubmitButton>
-              </ActionForm>
-            )}
             <div className="flex flex-wrap gap-2 pt-1">
               {d.status === 'scheduled' && <StepButton id={d.id} step="open" label="Open now" />}
               {d.status === 'live' && <StepButton id={d.id} step="lock" label="Lock now & settle payments" danger />}

@@ -94,19 +94,6 @@ export async function createNextDrop(): Promise<Result> {
   return { ok: true, message: 'Next drop is scheduled.' };
 }
 
-export async function updateDrop(_: unknown, form: FormData): Promise<Result> {
-  const { session, db } = await guard();
-  const id = String(form.get('id'));
-  const causeId = String(form.get('causeId') || '') || null;
-  const shortlist = form.getAll('shortlist').map(String).filter(Boolean);
-  await db.from('drops').update({ cause_id: causeId }).eq('id', id);
-  await db.from('cause_shortlist').delete().eq('drop_id', id);
-  if (shortlist.length) await db.from('cause_shortlist').insert(shortlist.map((cause_id) => ({ drop_id: id, cause_id })));
-  await audit(session.user.id, 'drop.update', id, { causeId, shortlist });
-  revalidatePath('/admin/drops');
-  return { ok: true };
-}
-
 /** Manual overrides for launch week or emergencies; they reuse the scheduler code paths. */
 export async function forceDropStep(_: unknown, form: FormData): Promise<Result> {
   const { session, db } = await guard();
@@ -183,62 +170,7 @@ export async function refundOrder(orderId: string): Promise<Result> {
   return { ok: true, message: 'Refund requested.' };
 }
 
-// ─── Causes, partners, payouts ───────────────────────────────────────
-export async function createPartner(_: unknown, form: FormData): Promise<Result> {
-  const { session, db } = await guard();
-  const name = String(form.get('name') || '').trim();
-  if (name.length < 2) return { ok: false, error: 'Partner name required.' };
-  await db.from('partners').insert({ name, registration_no: String(form.get('registration_no') || '') || null, website: String(form.get('website') || '') || null, verified: form.get('verified') === 'on' });
-  await audit(session.user.id, 'partner.create', name);
-  revalidatePath('/admin/causes');
-  return { ok: true };
-}
-
-export async function createCause(_: unknown, form: FormData): Promise<Result> {
-  const { session, db } = await guard();
-  const name = String(form.get('name') || '').trim();
-  if (name.length < 2) return { ok: false, error: 'Cause name required.' };
-  await db.from('causes').insert({ name, description: String(form.get('description') || '') || null, partner_id: String(form.get('partner_id') || '') || null });
-  await audit(session.user.id, 'cause.create', name);
-  revalidatePath('/admin/causes');
-  return { ok: true };
-}
-
-export async function recordCausePayout(_: unknown, form: FormData): Promise<Result> {
-  const { session, db } = await guard();
-  const dropId = String(form.get('dropId'));
-  const amount = Number(form.get('amount'));
-  const netProfit = Number(form.get('netProfit'));
-  const utr = String(form.get('utr') || '').trim();
-  const publish = form.get('publish') === 'on';
-  const file = form.get('receipt') as File | null;
-  if (!Number.isFinite(amount) || amount < 0) return { ok: false, error: 'Enter the amount paid.' };
-  if (publish && !utr) return { ok: false, error: 'Add the UTR before publishing.' };
-  const { data: drop } = await db.from('drops').select('cause_id').eq('id', dropId).single();
-  if (!drop?.cause_id) return { ok: false, error: 'This drop has no cause set.' };
-
-  let receiptUrl: string | null = null;
-  if (file && file.size > 0) {
-    const path = `${dropId}/${Date.now()}-${file.name.replace(/[^\w.-]/g, '_')}`;
-    const { error } = await db.storage.from('receipts').upload(path, file, { contentType: file.type });
-    if (error) return { ok: false, error: `Receipt upload failed: ${error.message}` };
-    receiptUrl = db.storage.from('receipts').getPublicUrl(path).data.publicUrl;
-  }
-  const { error } = await db.from('cause_payouts').upsert({
-    drop_id: dropId, cause_id: drop.cause_id, net_profit: netProfit, amount, utr: utr || null,
-    receipt_url: receiptUrl ?? undefined, paid_at: utr ? new Date().toISOString() : null, published: publish,
-  }, { onConflict: 'drop_id' });
-  if (error) return { ok: false, error: error.message };
-
-  if (publish) {
-    const { data: c } = await db.from('causes').select('name').eq('id', drop.cause_id).single();
-    await db.from('posts').insert({ kind: 'system', body: `₹${amount.toLocaleString('en-IN')} SENT TO ${String(c?.name ?? 'THIS DROP’S CAUSE').toUpperCase()}. RECEIPT ON THE CAUSES PAGE.` });
-  }
-  await audit(session.user.id, 'cause.payout', dropId, { amount, utr, publish });
-  revalidatePath('/admin/causes'); revalidatePath('/causes');
-  return { ok: true, message: publish ? 'Payout published.' : 'Payout saved (not public yet).' };
-}
-
+// ─── Artist payouts ──────────────────────────────────────────────────
 export async function recordArtistPayout(_: unknown, form: FormData): Promise<Result> {
   const { session, db } = await guard();
   const artistId = String(form.get('artistId'));
@@ -296,7 +228,7 @@ const int = z.coerce.number().int().min(0);
 const pct = z.coerce.number().min(0).max(100);
 const settingsSchema = z.object({
   backer_price: int.min(1), retail_price: int.min(1), backer_threshold: int.min(1), winners_per_drop: int.min(1),
-  cause_pct_of_profit: pct, artist_pct: pct, unit_cost: int, shipping_cost: int, gateway_fee_pct: pct, gst_pct: pct,
+  artist_pct: pct, unit_cost: int, shipping_cost: int, gateway_fee_pct: pct, gst_pct: pct,
   shipping_fee: int, free_shipping_over: int, retail_window_days: int, max_designs_per_artist: int.min(1),
   designs_per_drop: int.min(1), votes_per_hour: int.min(1), milestone_heads_up: int,
   lock_time: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/), print_time: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/),

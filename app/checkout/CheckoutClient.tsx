@@ -7,7 +7,7 @@ import { AddressForm } from '@/components/AddressBook';
 import { toast } from '@/components/Toaster';
 import { clearBag, readBag } from '@/lib/cart';
 import { getBrowserClient } from '@/lib/supabase/client';
-import { inr } from '@/lib/format';
+import { artistCut, inr } from '@/lib/format';
 import type { Address, CartLine, Colourway, PriceType } from '@/lib/types';
 
 declare global {
@@ -32,7 +32,7 @@ interface Props {
     design: { id: string; slug: string; name: string; colours: Colourway[]; art_front_url: string };
     price: number; priceType: PriceType; colour: string; size: string; qty: number;
   };
-  settings: { retail_price: number; shipping_fee: number; free_shipping_over: number; cause_pct: number; sizes: string[] };
+  settings: { retail_price: number; shipping_fee: number; free_shipping_over: number; artist_pct: number; gst_pct: number; sizes: string[] };
   initialCode: string | null;
   rewards: { code: string; label: string }[];
 }
@@ -184,7 +184,9 @@ export function CheckoutClient({ mode, addresses, backing, settings, initialCode
         <div className="border-t-2 border-dashed border-ink my-1" />
         <Row k="TOTAL (GST INCL.)" v={inr(total)} bold />
         <p className="bg-cobalt text-white border-2 border-ink rounded-lg px-3 py-2.5 font-bold text-xs mt-1">
-          {settings.cause_pct}% OF OUR NET PROFIT FUNDS THIS DROP’S CAUSE · ₹ ON YOUR RECEIPT
+          {backing
+            ? `${inr(artistCut(backing.price, settings.gst_pct, settings.artist_pct) * qty)} OF THIS GOES TO THE ARTIST WHO DREW IT`
+            : `${settings.artist_pct}% OF EVERY TEE GOES TO THE ARTIST WHO DREW IT`}
         </p>
       </section>
 

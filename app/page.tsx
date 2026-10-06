@@ -1,10 +1,11 @@
 import Link from 'next/link';
-import { getCause, getCurrentDrop, getDropDesigns, getRetailWinners, getSettings } from '@/lib/data';
+import { getCurrentDrop, getDropDesigns, getRetailWinners, getSettings } from '@/lib/data';
 import { getSession } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { loadPosts } from '@/lib/feed';
 import { isConfigured } from '@/lib/env';
-import { dropLabel, inr } from '@/lib/format';
+import { artistCut, dropLabel, inr, num } from '@/lib/format';
+import { Avatar } from '@/components/PostCard';
 import { DropHero } from '@/components/DropHero';
 import { Board } from '@/components/Board';
 import { ArtistPanel, HowItWorksStrip } from '@/components/Panels';
@@ -19,11 +20,10 @@ export default async function Home() {
   const designs = drop ? await getDropDesigns(drop.id) : [];
   const supabase = createClient();
 
-  const [votes, cause, winners, feed, voterCount] = await Promise.all([
+  const [votes, winners, feed, voterCount] = await Promise.all([
     session && drop
       ? supabase.from('votes').select('design_id').eq('drop_id', drop.id).is('withdrawn_at', null).then((r) => (r.data ?? []).map((v) => v.design_id as string))
       : Promise.resolve([] as string[]),
-    getCause(drop?.cause_id ?? null),
     getRetailWinners(),
     loadPosts({ limit: 3, userId: session?.user.id }),
     drop ? supabase.rpc('drop_voter_count', { p_drop: drop.id }).then((r) => (typeof r.data === 'number' ? r.data : 0)) : Promise.resolve(0),
@@ -42,7 +42,8 @@ export default async function Home() {
           <h1 className="h-display text-[clamp(56px,9vw,136px)] leading-[0.88] misprint">The crowd<br />prints.</h1>
           <p className="max-w-[540px] text-lg leading-relaxed text-body">
             Independent artists drop graphics every Monday. You vote till Thursday. The top {settings.winners_per_drop} hit the press on Friday.
-            Back early at {inr(settings.backer_price)} with UPI AutoPay — debited only if it prints — and 15% of our profit funds a cause you pick.
+            Back early at {inr(settings.backer_price)} with UPI AutoPay — debited only if it prints. Every tee pays the artist who drew it
+            ({inr(artistCut(settings.retail_price, settings.gst_pct, settings.artist_pct))} on a {inr(settings.retail_price)} tee).
           </p>
           <div className="flex flex-wrap gap-3.5">
             <a href="#board" className="btn-pink !min-h-[58px] !px-7 !text-[22px]">Start voting</a>
@@ -63,7 +64,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <HowItWorksStrip backerPrice={settings.backer_price} retailPrice={settings.retail_price} winners={settings.winners_per_drop} />
+      <HowItWorksStrip backerPrice={settings.backer_price} retailPrice={settings.retail_price} winners={settings.winners_per_drop} artistPct={settings.artist_pct} />
 
       <div id="board" className="container-page py-12 flex flex-wrap gap-10 items-start scroll-mt-28">
         <div className="flex-[999_1_600px] min-w-0">
@@ -82,19 +83,10 @@ export default async function Home() {
           ) : (
             <p className="card p-6">The first drop has not been scheduled yet.</p>
           )}
-          <div className="md:hidden pt-6"><ArtistPanel compact /></div>
+          <div className="md:hidden pt-6"><ArtistPanel compact artistPct={settings.artist_pct} /></div>
         </div>
 
         <aside className="flex-[1_1_320px] min-w-0 flex flex-col gap-6">
-          {cause && (
-            <section className="bg-cobalt halftone-dark text-white border-2 border-ink rounded-[22px] shadow-hard p-5 flex flex-col gap-2.5">
-              <span className="self-start -rotate-3 bg-acid text-ink border-2 border-ink px-2 py-0.5 rounded font-display text-[13px] tracking-wider">THIS DROP’S CAUSE</span>
-              <p className="font-display text-[34px] leading-[0.95] uppercase">{cause.name}</p>
-              <p className="text-sm text-cobalt-soft">With {cause.partner?.name ?? 'our partner'} · 15% of net profit</p>
-              <Link href="/causes" className="text-white font-bold text-sm underline">Vote for the next cause</Link>
-            </section>
-          )}
-
           <section className="card p-5 flex flex-col gap-3.5">
             <div className="flex justify-between items-baseline">
               <h2 className="h-display text-[28px] [text-shadow:2px_2px_0_#FF3EA5]">The Pulse</h2>
@@ -125,41 +117,45 @@ export default async function Home() {
         </aside>
       </div>
 
-      <div className="hidden md:block"><ArtistPanel /></div>
-      <Receipts />
+      <ArtistsPaid artistPct={settings.artist_pct} />
+      <div className="hidden md:block"><ArtistPanel artistPct={settings.artist_pct} /></div>
     </>
   );
 }
 
-async function Receipts() {
-  const { data } = await createClient().from('cause_payouts')
-    .select('amount, paid_at, receipt_url, utr, drop:drops(number), cause:causes(name)')
-    .eq('published', true).order('paid_at', { ascending: false }).limit(5);
-  const rows = (data ?? []) as unknown as { amount: number; receipt_url: string | null; utr: string | null; drop: { number: number } | null; cause: { name: string } | null }[];
-  if (rows.length === 0) return null;
+async function ArtistsPaid({ artistPct }: { artistPct: number }) {
+  const supabase = createClient();
+  const [{ data: totals }, { data: top }] = await Promise.all([supabase.rpc('artist_totals'), supabase.rpc('top_artists', { p_limit: 6 })]);
+  const t = (totals as { earned: number; artists_printed: number; tees_sold: number }[] | null)?.[0];
+  const artists = (top ?? []) as { id: string; handle: string; name: string | null; avatar_url: string | null; printed: number; tees_sold: number }[];
+  if (!t || (t.earned === 0 && artists.length === 0)) return null;
   return (
     <section className="border-t-2 border-ink">
       <div className="container-page py-14 flex flex-wrap gap-10 items-start">
         <div className="flex-[1_1_320px] flex flex-col gap-3.5">
-          <h2 className="h-display text-[56px] leading-[0.9] misprint-blue">The<br />receipts.</h2>
-          <p className="text-[17px] text-body">Every rupee pledged to a cause is listed with its bank transfer reference. No “up to”, no estimates.</p>
-          <Link href="/causes" className="font-bold underline">Full impact ledger</Link>
+          <h2 className="h-display text-[56px] leading-[0.9] misprint-blue">Artists,<br />paid.</h2>
+          <p className="text-[17px] text-body">{artistPct}% of every tee goes to the person who drew it. Not a contest prize — a cut of every sale, for as long as it sells.</p>
+          <div className="flex gap-3 pt-1">
+            <div className="bg-acid border-2 border-ink rounded-xl px-4 py-2 shadow-hard-sm"><p className="font-display text-3xl leading-none">{inr(t.earned)}</p><p className="label-mono">earned by artists</p></div>
+            <div className="bg-card border-2 border-ink rounded-xl px-4 py-2 shadow-hard-sm"><p className="font-display text-3xl leading-none">{num(t.tees_sold)}</p><p className="label-mono">tees sold</p></div>
+          </div>
+          <Link href="/artists" className="font-bold underline">Meet the artists</Link>
         </div>
-        <div className="flex-[2_1_480px] min-w-0 overflow-x-auto bg-card border-2 border-ink rounded-md shadow-hard-lg">
-          <table className="w-full min-w-[520px] font-mono text-sm">
-            <thead><tr className="bg-ink text-acid text-left"><th className="p-4">DROP</th><th className="p-4">CAUSE</th><th className="p-4">PAID OUT</th><th className="p-4">PROOF</th></tr></thead>
-            <tbody>
-              {rows.map((r, i) => (
-                <tr key={i} className="border-t-2 border-dashed border-ink">
-                  <td className="p-4 font-bold">D{r.drop?.number}</td>
-                  <td className="p-4 font-sans font-semibold">{r.cause?.name}</td>
-                  <td className="p-4">{inr(r.amount)}</td>
-                  <td className="p-4">{r.receipt_url ? <a className="text-cobalt font-bold underline" href={r.receipt_url}>RECEIPT</a> : <span className="text-muted">UTR {r.utr ?? '—'}</span>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {artists.length > 0 && (
+          <ol className="flex-[2_1_480px] min-w-0 grid gap-3 grid-cols-[repeat(auto-fill,minmax(220px,1fr))]">
+            {artists.map((a) => (
+              <li key={a.id}>
+                <Link href={`/a/${a.handle}`} className="card p-4 flex items-center gap-3 shadow-hard-sm">
+                  <Avatar handle={a.handle} url={a.avatar_url} size={48} />
+                  <span className="flex-1 min-w-0">
+                    <span className="block font-bold truncate">@{a.handle}</span>
+                    <span className="block label-mono text-muted">{a.printed} printed · {num(a.tees_sold)} tees</span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ol>
+        )}
       </div>
     </section>
   );

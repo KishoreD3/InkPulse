@@ -65,3 +65,8 @@ export const DESIGN_STATUS_LABEL: Record<string, string> = {
   lost: "Didn't make the cut",
   withdrawn: 'Withdrawn',
 };
+
+/** ₹ the artist earns on one tee at this price (their % of the price before GST, as the database computes it). */
+export function artistCut(price: number, gstPct: number, artistPct: number) {
+  return Math.floor((price / (1 + gstPct / 100)) * (artistPct / 100));
+}

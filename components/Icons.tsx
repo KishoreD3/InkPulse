@@ -58,3 +58,6 @@ export const Flag = ({ size, className }: P) => (
 export const User = ({ size, className }: P) => (
   <svg {...base(size)} className={className}><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" /></svg>
 );
+export const Brush = ({ size, className }: P) => (
+  <svg {...base(size)} className={className}><path d="M14.5 4.5l5 5L11 18l-5-5z" /><path d="M6 13c-2 0-3 1.5-3 3.5S2 20 2 20s3.5.5 5-1 1.5-3.5-1-6" /></svg>
+);

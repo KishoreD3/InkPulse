@@ -52,7 +52,7 @@ export default async function AdminDashboard() {
       </header>
       {placeholders.length > 0 && (
         <Link href="/admin/settings" className="bg-acid border-2 border-ink rounded-xl p-3 font-semibold">
-          Set real numbers before launch: {placeholders.join(', ')} are still 0 — net profit and the cause amount are overstated until you do. →
+          Set real numbers before launch: {placeholders.join(', ')} are still 0 — net profit is overstated until you do. →
         </Link>
       )}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
