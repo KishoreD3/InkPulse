@@ -30,4 +30,6 @@ echo "→ supabase/tests/smoke.sql"
 $PSQL -f supabase/tests/smoke.sql
 echo "→ supabase/tests/growth.sql"
 $PSQL -f supabase/tests/growth.sql
+echo "→ supabase/tests/topics.sql"
+$PSQL -f supabase/tests/topics.sql
 echo "✓ database tests passed"

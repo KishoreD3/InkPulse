@@ -96,7 +96,21 @@ insert into public.posts (kind, body, created_at) values
 -- Test mode: let email sign-ins vote until an SMS provider is configured.
 update public.settings set require_phone_for_votes = false;
 
--- Schedule drop 43 so the Monday job has something to open.
+-- Drop 43 opens next week; its topic is out and submissions are still open (demo).
+insert into public.drops (id, number, status, opens_at, locks_at, prints_at) values
+  ('44444444-4444-4444-8444-000000000043', 43, 'scheduled', now() + interval '6 days', now() + interval '9 days 14 hours', now() + interval '10 days');
+update public.drops set topic_announced_at = now() - interval '7 days' where number = 43;
+
+insert into public.drop_topics (drop_id, title, brief, prompts) values
+  ('44444444-4444-4444-8444-000000000039', 'Filter Kaapi', 'The ritual, the tumbler, the pour.', '{}'),
+  ('44444444-4444-4444-8444-000000000040', 'Signal & Noise', 'Charts, tickers and the people who stare at them.', '{}'),
+  ('44444444-4444-4444-8444-000000000041', 'Madras Heat', 'April afternoons, sun-bleached signage, auto-rickshaw yellow.', '{}'),
+  ('44444444-4444-4444-8444-000000000042', 'Lines & Loops', 'Geometry with roots: kolam, grids, circuits, patterns that repeat.',
+     '{"Kolam you grew up with","A city map as a pattern","One continuous line"}'),
+  ('44444444-4444-4444-8444-000000000043', 'Monsoon Mood', 'First rain, wet streets, power cuts and filter coffee by candlelight. Make the city feel the downpour.',
+     '{"Rain on a bus window","Paper boats in a gutter","The smell before the storm","Puddle reflections"}');
+
+-- Keep two drops scheduled ahead (creates drop 44 with its own topic window).
 select public.ensure_next_drop();
 
 -- Demo promo code (test mode): 10% off anything, up to 500 uses.

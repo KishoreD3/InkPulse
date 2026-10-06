@@ -38,6 +38,9 @@ export interface Settings {
   welcome_reward: number;
   return_window_days: number;
   reopen_days: number;
+  topic_lead_days: number;
+  review_days: number;
+  topic_time: string;
 }
 
 export interface Profile {
@@ -73,7 +76,20 @@ export interface Drop {
   prints_at: string;
   cause_id: string | null;
   locked_at: string | null;
+  topic_at: string;
+  submissions_close_at: string;
 }
+
+export interface DropTopic {
+  drop_id: string;
+  title: string;
+  brief: string | null;
+  prompts: string[];
+  image_url: string | null;
+}
+
+/** Where a drop is in its cycle right now. */
+export type DropPhase = 'upcoming' | 'submissions' | 'review' | 'voting' | 'locked' | 'printing' | 'shipped';
 
 export interface Colourway {
   name: string;
@@ -95,6 +111,7 @@ export interface Design {
   art_back_url: string | null;
   perk: string | null;
   originality_confirmed: boolean;
+  submitted_for: string | null;
   status: DesignStatus;
   review_note: string | null;
   vote_count: number;

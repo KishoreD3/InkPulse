@@ -70,3 +70,14 @@ export const DESIGN_STATUS_LABEL: Record<string, string> = {
 export function artistCut(price: number, gstPct: number, artistPct: number) {
   return Math.floor((price / (1 + gstPct / 100)) * (artistPct / 100));
 }
+
+/** "Mon 13 Oct" in IST. */
+export const dayLabel = (iso: string) =>
+  new Intl.DateTimeFormat('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: IST }).format(new Date(iso));
+
+/** "Wed 15 Oct, 11:59 pm" in IST. */
+export const dayTime = (iso: string) =>
+  new Intl.DateTimeFormat('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: IST }).format(new Date(iso));
+
+/** Whole days (rounded up) until a time; 0 if past. */
+export const daysUntil = (iso: string) => Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000));

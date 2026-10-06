@@ -119,6 +119,20 @@ supabase/tests       smoke tests  (npm run db:test)
 public/              PWA manifest, service worker, icons, demo artwork
 ```
 
+## The topic cycle
+Every drop answers a topic. Defaults (Admin → Settings → Topic cycle):
+
+```
+Mon 10:00  (2 weeks before)  topic revealed, submissions open   → system post + artists notified
+Tue (day 9) 23:59            last-day reminder to artists who haven't submitted
+Wed 23:59                    submissions close
+Thu → Sun                    review (Admin → Submissions, grouped by topic)
+Mon 00:00                    voting opens (drop goes live)
+Thu 23:59                    voting locks
+Fri 10:00                    top designs print
+```
+A new topic goes up every Monday, so three drops always overlap: one voting, one in submissions/review, one just announced. The scheduler keeps two drops scheduled ahead; set each one's title, brief and idea sparks in Admin → Drops before its reveal (unset = "Open theme"). Topics stay hidden until their reveal time. Members can only send a design for review while its topic is open, up to `max_designs_per_artist` per topic; approved designs go into their topic's drop automatically.
+
 ## Growth & after-sales
 - **Share cards** — every design has a link-preview image at `/d/<slug>/card` and a 1080×1920 story card (`?size=story&kind=voted|backed|artist`). Voting, backing and the artist studio all offer a "Story card" download.
 - **Tracked links** — add `?src=<tag>` to any link (the share buttons do this for WhatsApp, Instagram, X). Votes and orders remember the tag; artists see votes and backers by source in the studio.

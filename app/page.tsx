@@ -6,6 +6,8 @@ import { loadPosts } from '@/lib/feed';
 import { isConfigured } from '@/lib/env';
 import { artistCut, dropLabel, inr, num } from '@/lib/format';
 import { Avatar } from '@/components/PostCard';
+import { getOpenTopics, getTopic, topicTitle } from '@/lib/topics';
+import { dayTime, daysUntil } from '@/lib/format';
 import { DropHero } from '@/components/DropHero';
 import { Board } from '@/components/Board';
 import { ArtistPanel, HowItWorksStrip } from '@/components/Panels';
@@ -20,14 +22,17 @@ export default async function Home() {
   const designs = drop ? await getDropDesigns(drop.id) : [];
   const supabase = createClient();
 
-  const [votes, winners, feed, voterCount] = await Promise.all([
+  const [votes, winners, feed, voterCount, topic, openTopics] = await Promise.all([
     session && drop
       ? supabase.from('votes').select('design_id').eq('drop_id', drop.id).is('withdrawn_at', null).then((r) => (r.data ?? []).map((v) => v.design_id as string))
       : Promise.resolve([] as string[]),
     getRetailWinners(),
     loadPosts({ limit: 3, userId: session?.user.id }),
     drop ? supabase.rpc('drop_voter_count', { p_drop: drop.id }).then((r) => (typeof r.data === 'number' ? r.data : 0)) : Promise.resolve(0),
+    getTopic(drop?.id),
+    getOpenTopics(),
   ]);
+  const openTopic = openTopics[0];
 
   const top = designs[0];
   const slotsLocked = designs.slice(0, settings.winners_per_drop).filter((d) => d.vote_count >= settings.backer_threshold).length;
@@ -40,8 +45,13 @@ export default async function Home() {
             {drop ? `${dropLabel(drop.number)} ${drop.status === 'live' ? 'IS LIVE' : drop.status === 'scheduled' ? 'OPENS MONDAY' : 'IS LOCKED'}` : 'NEXT DROP SOON'}
           </span>
           <h1 className="h-display text-[clamp(56px,9vw,136px)] leading-[0.88] misprint">The crowd<br />prints.</h1>
+          {drop && (
+            <p className="font-display text-[clamp(22px,3vw,32px)] uppercase leading-none">
+              This week&apos;s topic: <span className="highlight">{topicTitle(topic)}</span>
+            </p>
+          )}
           <p className="max-w-[540px] text-lg leading-relaxed text-body">
-            Independent artists drop graphics every Monday. You vote till Thursday. The top {settings.winners_per_drop} hit the press on Friday.
+            Every Monday a new topic goes out and independent artists answer it. Two weeks later their designs face the vote — you vote till Thursday. The top {settings.winners_per_drop} hit the press on Friday.
             Back early at {inr(settings.backer_price)} with UPI AutoPay — debited only if it prints. Every tee pays the artist who drew it
             ({inr(artistCut(settings.retail_price, settings.gst_pct, settings.artist_pct))} on a {inr(settings.retail_price)} tee).
           </p>
@@ -51,7 +61,7 @@ export default async function Home() {
           </div>
         </div>
         <div className="flex-[1_1_380px] min-w-0 flex flex-col gap-4">
-          {drop ? <DropHero drop={drop} settings={settings} voters={voterCount} slotsLocked={slotsLocked} /> : null}
+          {drop ? <DropHero drop={drop} settings={settings} voters={voterCount} slotsLocked={slotsLocked} topic={topicTitle(topic)} /> : null}
           {top && drop?.status === 'live' && (
             <Link href={`/d/${top.slug}`} className="relative h-[260px] border-2 border-ink rounded-[18px] bg-pink halftone-light grid place-items-center shadow-hard">
               <Tee shirt={colourway(top).hex} art={colourway(top).art} size={230} label={`${top.name} by @${top.artist?.handle}`} />
@@ -87,6 +97,19 @@ export default async function Home() {
         </div>
 
         <aside className="flex-[1_1_320px] min-w-0 flex flex-col gap-6">
+          {openTopic && (
+            <section className="bg-acid border-2 border-ink rounded-[22px] shadow-hard p-5 flex flex-col gap-2.5">
+              <span className="self-start -rotate-3 bg-ink text-acid px-2 py-0.5 rounded font-display text-[13px] tracking-wider">
+                ARTISTS · OPEN TOPIC · DROP {String(openTopic.number).padStart(3, '0')}
+              </span>
+              <p className="font-display text-[38px] leading-[0.92] uppercase">{topicTitle(openTopic.topic)}</p>
+              {openTopic.topic?.brief && <p className="text-sm line-clamp-3">{openTopic.topic.brief}</p>}
+              <p className="text-sm font-bold">
+                Submissions close {dayTime(openTopic.submissions_close_at)} IST{daysUntil(openTopic.submissions_close_at) > 1 ? ` · ${daysUntil(openTopic.submissions_close_at)} days left` : ' · last day'}
+              </p>
+              <Link href="/topics" className="btn-ink self-start">See the brief &amp; submit</Link>
+            </section>
+          )}
           <section className="card p-5 flex flex-col gap-3.5">
             <div className="flex justify-between items-baseline">
               <h2 className="h-display text-[28px] [text-shadow:2px_2px_0_#FF3EA5]">The Pulse</h2>

@@ -4,10 +4,11 @@ import { Shield } from './Icons';
 
 export function HowItWorksStrip({ backerPrice, retailPrice, winners, artistPct }: { backerPrice: number; retailPrice: number; winners: number; artistPct: number }) {
   const steps = [
-    ['01', 'Vote', 'New designs drop every Monday. Vote till Thursday.'],
-    ['02', 'Back early', `Lock ${inr(backerPrice)} before 5,000 votes (${inr(retailPrice)} after). UPI AutoPay debits only if it prints.`],
-    ['03', `Top ${winners} print`, 'Winners print Friday, made to order. Zero inventory.'],
-    ['04', 'Artists get paid', `${artistPct}% of every tee goes straight to the artist who drew it.`],
+    ['01', 'Topic', 'A new topic every Monday. Artists get ~10 days to answer it.'],
+    ['02', 'Vote', 'Reviewed designs face the crowd Monday to Thursday.'],
+    ['03', 'Back early', `Lock ${inr(backerPrice)} before 5,000 votes (${inr(retailPrice)} after). UPI AutoPay debits only if it prints.`],
+    ['04', `Top ${winners} print`, 'Winners print Friday, made to order. Zero inventory.'],
+    ['05', 'Artists get paid', `${artistPct}% of every tee goes straight to the artist who drew it.`],
   ];
   return (
     <section aria-label="How it works" className="bg-acid border-y-2 border-ink">
@@ -66,5 +67,48 @@ export function ArtistPanel({ compact = false, artistPct }: { compact?: boolean;
         </div>
       </div>
     </section>
+  );
+}
+
+/** Three drops overlap every week: one voting, one in submissions/review, one whose topic just went out. */
+export function CycleRhythm({ reviewDays = 4 }: { reviewDays?: number }) {
+  const days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  // phase per day for a drop whose topic is revealed on day 0 (Monday of week 1)
+  const closeDay = 14 - reviewDays - 1; // last submission day (Wed of week 2 by default)
+  const phaseOf = (day: number) =>
+    day < 0 ? null : day <= closeDay ? 'S' : day < 14 ? 'R' : day <= 17 ? 'V' : day === 18 ? 'P' : null;
+  const style: Record<string, string> = { S: 'bg-acid', R: 'bg-mist', V: 'bg-pink', P: 'bg-ink text-acid' };
+  const rows = [
+    { label: 'Drop N', offset: 14 },   // voting this week
+    { label: 'Drop N+1', offset: 7 },
+    { label: 'Drop N+2', offset: 0 },  // topic out this Monday
+  ];
+  return (
+    <div className="overflow-x-auto">
+      <table className="min-w-[640px] w-full border-separate border-spacing-[3px] font-mono text-[11px]">
+        <caption className="text-left label-mono pb-2">Three weeks of INKPULSE — every row is one drop</caption>
+        <thead>
+          <tr><th />{[1, 2, 3].map((w) => <th key={w} colSpan={7} className="text-left font-display text-base font-normal">THIS WEEK{w > 1 ? ` +${w - 1}` : ''}</th>)}</tr>
+          <tr><th />{[0, 1, 2].flatMap((w) => days.map((d, i) => <th key={`${w}${i}`} className="font-bold">{d}</th>))}</tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.label}>
+              <th className="text-left pr-2 whitespace-nowrap">{r.label}</th>
+              {Array.from({ length: 21 }, (_, i) => {
+                const p = phaseOf(i + r.offset);
+                return <td key={i} className={`h-7 border-2 border-ink rounded text-center ${p ? style[p] : 'bg-card opacity-40'}`}>{p ?? ''}</td>;
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="flex flex-wrap gap-3 pt-2 text-xs">
+        <span><span className="inline-block w-3 h-3 border-2 border-ink bg-acid align-middle" /> S · artists submit</span>
+        <span><span className="inline-block w-3 h-3 border-2 border-ink bg-mist align-middle" /> R · review</span>
+        <span><span className="inline-block w-3 h-3 border-2 border-ink bg-pink align-middle" /> V · voting</span>
+        <span><span className="inline-block w-3 h-3 border-2 border-ink bg-ink align-middle" /> P · print</span>
+      </p>
+    </div>
   );
 }

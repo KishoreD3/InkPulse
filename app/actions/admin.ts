@@ -47,15 +47,17 @@ export async function reviewDesign(_: unknown, form: FormData): Promise<Result> 
   const { id, decision, note, dropId } = parsed.data;
   if (decision !== 'approve' && !note) return { ok: false, error: 'Add a note for the artist.' };
 
-  const { data: design } = await db.from('designs').select('id, artist_id, status').eq('id', id).single();
+  const { data: design } = await db.from('designs').select('id, artist_id, status, submitted_for').eq('id', id).single();
   if (!design || design.status !== 'in_review') return { ok: false, error: 'Already reviewed.' };
+  // Approved designs join the drop whose topic they answered unless the reviewer picks another.
+  const target = dropId || (decision === 'approve' ? (design.submitted_for as string | null) : null) || '';
 
-  if (decision === 'approve' && dropId) {
+  if (decision === 'approve' && target) {
     const [{ data: s }, { count: mine }, { count: total }, { data: drop }] = await Promise.all([
       db.from('settings').select('max_designs_per_artist, designs_per_drop').single(),
-      db.from('designs').select('id', { count: 'exact', head: true }).eq('drop_id', dropId).eq('artist_id', design.artist_id).in('status', ['approved', 'live']),
-      db.from('designs').select('id', { count: 'exact', head: true }).eq('drop_id', dropId).in('status', ['approved', 'live']),
-      db.from('drops').select('status').eq('id', dropId).single(),
+      db.from('designs').select('id', { count: 'exact', head: true }).eq('drop_id', target).eq('artist_id', design.artist_id).in('status', ['approved', 'live']),
+      db.from('designs').select('id', { count: 'exact', head: true }).eq('drop_id', target).in('status', ['approved', 'live']),
+      db.from('drops').select('status').eq('id', target).single(),
     ]);
     if (drop?.status !== 'scheduled') return { ok: false, error: 'Designs can only be scheduled into a drop that has not opened.' };
     if ((mine ?? 0) >= (s?.max_designs_per_artist ?? 2)) return { ok: false, error: 'This artist already has the maximum designs in that drop.' };
@@ -65,10 +67,10 @@ export async function reviewDesign(_: unknown, form: FormData): Promise<Result> 
   const status = decision === 'approve' ? 'approved' : decision === 'changes' ? 'changes_requested' : 'rejected';
   const { error } = await db.from('designs').update({
     status, review_note: note || null, reviewed_by: session.user.id, reviewed_at: new Date().toISOString(),
-    drop_id: decision === 'approve' && dropId ? dropId : null,
+    drop_id: decision === 'approve' && target ? target : null,
   }).eq('id', id);
   if (error) return { ok: false, error: error.message };
-  await audit(session.user.id, `design.${decision}`, id, { note, dropId });
+  await audit(session.user.id, `design.${decision}`, id, { note, dropId: target });
   dispatchPending().catch(() => {});
   revalidatePath('/admin/submissions');
   return { ok: true, message: `Design ${status.replace('_', ' ')}.` };
@@ -237,6 +239,7 @@ const settingsSchema = z.object({
   support_email: z.string().email(),
   require_phone_for_votes: z.enum(['true', 'false']).transform((v) => v === 'true'),
   referral_reward: int, welcome_reward: int, return_window_days: int, reopen_days: int.min(1),
+  topic_lead_days: int.min(7).max(42), review_days: int.min(1).max(10), topic_time: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/),
 });
 
 export async function saveSettings(_: unknown, form: FormData): Promise<Result> {
@@ -244,6 +247,7 @@ export async function saveSettings(_: unknown, form: FormData): Promise<Result> 
   const parsed = settingsSchema.safeParse(Object.fromEntries(form));
   if (!parsed.success) return { ok: false, error: `${parsed.error.issues[0].path.join('.')}: ${parsed.error.issues[0].message}` };
   if (parsed.data.backer_price >= parsed.data.retail_price) return { ok: false, error: 'Backer price must be lower than retail price.' };
+  if (parsed.data.topic_lead_days < parsed.data.review_days + 3) return { ok: false, error: 'Leave at least 3 days for submissions: topic lead days must be review days + 3 or more.' };
   const { error } = await db.from('settings').update(parsed.data).eq('id', true);
   if (error) return { ok: false, error: error.message };
   await audit(session.user.id, 'settings.update', 'settings', parsed.data);
@@ -327,4 +331,26 @@ export async function hideReview(reviewId: string): Promise<Result> {
   await audit(session.user.id, 'review.hide', reviewId);
   revalidatePath('/admin/moderation');
   return { ok: true };
+}
+
+// ─── Topics ──────────────────────────────────────────────────────────
+const topicSchema = z.object({
+  dropId: z.string().uuid(),
+  title: z.string().trim().min(2, 'Topic needs a title').max(60),
+  brief: z.string().trim().max(1000).optional(),
+  prompts: z.string().optional().transform((s) => (s ?? '').split('\n').map((x) => x.trim()).filter(Boolean).slice(0, 6)),
+});
+
+export async function saveTopic(_: unknown, form: FormData): Promise<Result> {
+  const { session, db } = await guard();
+  const parsed = topicSchema.safeParse(Object.fromEntries(form));
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+  const { dropId, title, brief, prompts } = parsed.data;
+  const { data: drop } = await db.from('drops').select('status, topic_announced_at').eq('id', dropId).single();
+  if (!drop || drop.status !== 'scheduled') return { ok: false, error: 'Topics can only be set before voting opens.' };
+  const { error } = await db.from('drop_topics').upsert({ drop_id: dropId, title, brief: brief || null, prompts });
+  if (error) return { ok: false, error: error.message };
+  await audit(session.user.id, 'topic.save', dropId, { title });
+  revalidatePath('/admin/drops'); revalidatePath('/topics');
+  return { ok: true, message: drop.topic_announced_at ? 'Topic updated (it was already announced).' : 'Topic saved. It goes public at its reveal time.' };
 }

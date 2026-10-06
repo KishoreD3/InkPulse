@@ -19,9 +19,18 @@ const schema = z.object({
   perk: z.string().trim().max(140).optional(),
   originality: z.literal(true, { errorMap: () => ({ message: 'Confirm the artwork is your original work' }) }),
   submit: z.boolean(),
+  submittedFor: z.string().uuid().nullable().optional(),
 });
 
 export type DesignInput = z.input<typeof schema>;
+
+function topicError(message: string): string | null {
+  if (message.includes('topic_required')) return 'Pick the topic this design answers.';
+  if (message.includes('topic_closed')) return 'Submissions for this topic have closed. Save it as a draft for the next one.';
+  const limit = message.match(/topic_limit:(\d+)/);
+  if (limit) return `You can send up to ${limit[1]} designs per topic.`;
+  return null;
+}
 
 export async function saveDesign(input: DesignInput): Promise<{ ok: true; slug: string } | { ok: false; error: string }> {
   const session = await getSession();
@@ -51,18 +60,20 @@ export async function saveDesign(input: DesignInput): Promise<{ ok: true; slug: 
     name: v.name, story: v.story || null, category: v.category, tags: v.tags, colours,
     art_front_url: v.artFrontUrl, art_back_url: v.artBackUrl || null, perk: v.perk || null,
     originality_confirmed: v.originality, status: v.submit ? 'in_review' : 'draft',
+    submitted_for: v.submittedFor ?? null,
   };
 
   if (v.id) {
     const { data, error } = await supabase.from('designs').update(row).eq('id', v.id).eq('artist_id', session.user.id).select('slug').maybeSingle();
-    if (error || !data) return { ok: false, error: 'This design can no longer be edited.' };
+    if (error) return { ok: false, error: topicError(error.message) ?? 'This design can no longer be edited.' };
+    if (!data) return { ok: false, error: 'This design can no longer be edited.' };
     revalidatePath('/studio');
     return { ok: true, slug: data.slug as string };
   }
 
   const slug = `${slugify(v.name) || 'design'}-${crypto.randomBytes(2).toString('hex')}`;
   const { error } = await supabase.from('designs').insert({ ...row, slug, artist_id: session.user.id });
-  if (error) return { ok: false, error: 'Could not save. Try again.' };
+  if (error) return { ok: false, error: topicError(error.message) ?? 'Could not save. Try again.' };
   revalidatePath('/studio');
   return { ok: true, slug };
 }

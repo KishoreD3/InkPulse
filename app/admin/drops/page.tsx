@@ -1,19 +1,26 @@
 import { createAdminClient } from '@/lib/supabase/server';
 import { dateTime, dropLabel } from '@/lib/format';
-import { createNextDrop, forceDropStep, scheduleDesign } from '@/app/actions/admin';
+import { createNextDrop, forceDropStep, saveTopic, scheduleDesign } from '@/app/actions/admin';
+import { CycleTimeline } from '@/components/CycleTimeline';
+import { dropPhase } from '@/lib/topics';
 import { ActionButton } from '@/components/admin';
 import { ActionForm, SubmitButton } from '@/components/forms';
-import type { Design, Drop } from '@/lib/types';
+import type { Design, Drop, DropTopic } from '@/lib/types';
 
 export const metadata = { title: 'Drops' };
 
 export default async function DropsAdmin() {
   const db = createAdminClient();
-  const [{ data: drops }, { data: approved }] = await Promise.all([
+  const [{ data: drops }, { data: topicRows }, { data: subs }, { data: approved }] = await Promise.all([
     db.from('drops').select('*').order('number', { ascending: false }).limit(12),
+    db.from('drop_topics').select('*'),
+    db.from('designs').select('submitted_for, status').not('submitted_for', 'is', null),
     db.from('designs').select('id, name, drop_id, artist:profiles!designs_artist_id_fkey(handle)').eq('status', 'approved'),
   ]);
   const list = (drops ?? []) as Drop[];
+  const topics = new Map(((topicRows ?? []) as DropTopic[]).map((t) => [t.drop_id, t]));
+  const subCount = (id: string, statuses: string[]) => ((subs ?? []) as { submitted_for: string; status: string }[])
+    .filter((x) => x.submitted_for === id && statuses.includes(x.status)).length;
   const ready = (approved ?? []) as unknown as (Pick<Design, 'id' | 'name' | 'drop_id'> & { artist: { handle: string } })[];
   const scheduled = list.filter((d) => d.status === 'scheduled');
 
@@ -50,7 +57,36 @@ export default async function DropsAdmin() {
               <span className={`sticker ${d.status === 'live' ? 'bg-pink' : 'bg-acid'}`}>{d.status}</span>
               {d.status === 'scheduled' && <span className="label-mono text-muted">{lineup} approved in line-up</span>}
             </div>
-            <p className="font-mono text-xs text-body">Opens {dateTime(d.opens_at)} · Locks {dateTime(d.locks_at)} · Prints {dateTime(d.prints_at)}</p>
+            <p className="font-mono text-xs text-body">
+              Topic {dateTime(d.topic_at)} · Submissions close {dateTime(d.submissions_close_at)} · Voting {dateTime(d.opens_at)} → {dateTime(d.locks_at)} · Prints {dateTime(d.prints_at)}
+            </p>
+            <CycleTimeline drop={d} phase={dropPhase(d)} compact />
+            {d.status === 'scheduled' && (
+              <p className="text-sm">
+                <strong>{subCount(d.id, ['in_review'])}</strong> waiting for review · <strong>{subCount(d.id, ['approved'])}</strong> approved · {subCount(d.id, ['changes_requested'])} sent back
+              </p>
+            )}
+            {d.status === 'scheduled' && (
+              <ActionForm action={saveTopic} className="grid gap-3 border-t-2 border-dashed border-ink pt-3" success="Topic saved.">
+                <input type="hidden" name="dropId" value={d.id} />
+                <div className="grid gap-3 md:grid-cols-[1fr_2fr]">
+                  <div>
+                    <label className="field-label" htmlFor={`tt-${d.id}`}>Topic {topics.get(d.id) ? '' : <span className="text-pink">(not set — it will run as “Open theme”)</span>}</label>
+                    <input id={`tt-${d.id}`} name="title" className="input" defaultValue={topics.get(d.id)?.title ?? ''} maxLength={60} placeholder="Monsoon Mood" required />
+                  </div>
+                  <div>
+                    <label className="field-label" htmlFor={`tb-${d.id}`}>Brief for artists</label>
+                    <textarea id={`tb-${d.id}`} name="brief" className="input py-2 min-h-[70px]" maxLength={1000} defaultValue={topics.get(d.id)?.brief ?? ''} />
+                  </div>
+                </div>
+                <div>
+                  <label className="field-label" htmlFor={`tp-${d.id}`}>Idea sparks (one per line, up to 6)</label>
+                  <textarea id={`tp-${d.id}`} name="prompts" className="input py-2 min-h-[60px]" defaultValue={topics.get(d.id)?.prompts.join('\n') ?? ''} />
+                </div>
+                <SubmitButton className="chip-on self-start">Save topic</SubmitButton>
+              </ActionForm>
+            )}
+            {d.status !== 'scheduled' && topics.get(d.id) && <p className="font-display text-xl uppercase">Topic: {topics.get(d.id)!.title}</p>}
             <div className="flex flex-wrap gap-2 pt-1">
               {d.status === 'scheduled' && <StepButton id={d.id} step="open" label="Open now" />}
               {d.status === 'live' && <StepButton id={d.id} step="lock" label="Lock now & settle payments" danger />}

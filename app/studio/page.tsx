@@ -7,7 +7,9 @@ import { savePayoutDetails } from '@/app/actions/profile';
 import { ActionForm, Field, SubmitButton } from '@/components/forms';
 import { Tee, colourway } from '@/components/Tee';
 import { ShareKit } from '@/components/ShareKit';
-import type { Design } from '@/lib/types';
+import type { Design, DropTopic } from '@/lib/types';
+import { getOpenTopics, topicTitle } from '@/lib/topics';
+import { dayTime } from '@/lib/format';
 
 export const metadata = { title: 'Artist studio' };
 export const dynamic = 'force-dynamic';
@@ -23,6 +25,10 @@ export default async function StudioPage() {
     supabase.from('profile_private').select('pan, payout_upi, bank_account, bank_ifsc, kyc_status').eq('id', session.user.id).maybeSingle(),
     supabase.rpc('artist_source_stats'),
   ]);
+  const open = await getOpenTopics();
+  const topicIds = Array.from(new Set(((designs ?? []) as Design[]).map((d) => d.submitted_for ?? d.drop_id).filter(Boolean))) as string[];
+  const { data: topicRows } = topicIds.length ? await supabase.from('drop_topics').select('*').in('drop_id', topicIds) : { data: [] };
+  const topicOf = new Map(((topicRows ?? []) as DropTopic[]).map((t) => [t.drop_id, t]));
   const bySource = new Map<string, { source: string; votes: number; backers: number }[]>();
   ((sources ?? []) as { design_id: string; source: string; votes: number; backers: number }[]).forEach((r) => {
     bySource.set(r.design_id, [...(bySource.get(r.design_id) ?? []), r]);
@@ -49,6 +55,21 @@ export default async function StudioPage() {
           <div key={k as string} className="card-flat p-4"><p className="font-display text-3xl">{v}</p><p className="label-mono">{k}</p></div>
         ))}
       </div>
+      {open.map((t) => {
+        const mine = list.filter((d) => d.submitted_for === t.id && d.status !== 'withdrawn').length;
+        return (
+          <section key={t.id} className="bg-acid border-2 border-ink rounded-[18px] shadow-hard-sm p-4 flex flex-wrap items-center gap-4">
+            <div className="flex-1 min-w-[220px]">
+              <p className="label-mono">Open topic · drop {String(t.number).padStart(3, '0')} · closes {dayTime(t.submissions_close_at)} IST</p>
+              <p className="font-display text-3xl uppercase leading-none">{topicTitle(t.topic)}</p>
+              <p className="text-sm pt-1">You&apos;ve sent {mine} of {settings.max_designs_per_artist}.</p>
+            </div>
+            {mine < settings.max_designs_per_artist && <Link href={`/submit?topic=${t.id}`} className="btn-ink">Submit for this topic</Link>}
+            <Link href="/topics" className="text-sm font-bold underline">Read the brief</Link>
+          </section>
+        );
+      })}
+      {open.length === 0 && <p className="card-flat p-3 text-sm">No topic is open right now — <Link href="/topics" className="underline font-bold">see when the next one drops</Link>. You can still save drafts.</p>}
       {!settings.artist_pct && <p className="bg-acid border-2 border-ink rounded-xl p-3 text-sm">The artist share percentage has not been published yet. Earnings will show once it is set.</p>}
 
       <section className="flex flex-col gap-3">
@@ -62,7 +83,7 @@ export default async function StudioPage() {
               <span className="w-20 h-20 border-2 border-ink rounded-xl bg-paper halftone-light grid place-items-center"><Tee shirt={c.hex} art={c.art} size={76} /></span>
               <div className="flex-1 min-w-[180px]">
                 <p className="font-display text-xl uppercase">{d.name}</p>
-                <p className="label-mono text-muted">{DESIGN_STATUS_LABEL[d.status]} · {dateShort(d.created_at)}</p>
+                <p className="label-mono text-muted">{DESIGN_STATUS_LABEL[d.status]} · {dateShort(d.created_at)}{(d.submitted_for ?? d.drop_id) ? ` · ${topicTitle(topicOf.get((d.submitted_for ?? d.drop_id)!))}` : ''}</p>
                 {d.review_note && ['changes_requested', 'rejected'].includes(d.status) && <p className="text-sm pt-1"><strong>Note:</strong> {d.review_note}</p>}
               </div>
               <div className="text-right font-mono text-sm">

@@ -9,7 +9,7 @@ values ('aaaaaaaa-0000-4000-8000-000000000001', 'authenticated', 'authenticated'
 
 do $$ begin
   assert (select count(*) from public.profiles where id = 'aaaaaaaa-0000-4000-8000-000000000001') = 1, 'profile auto-created';
-  assert (select count(*) from public.drops where status = 'scheduled') = 1, 'next drop scheduled by seed';
+  assert (select count(*) from public.drops where status = 'scheduled') = 2, 'two drops scheduled ahead by seed';
 end $$;
 
 update public.settings set require_phone_for_votes = true;
@@ -152,7 +152,8 @@ end $$;
 do $$
 declare v43 uuid := (select id from public.drops where number = 43);
 begin
-  update public.drops set opens_at = now() - interval '1 minute' where id = v43;
+  update public.drops set topic_at = now() - interval '14 days', submissions_close_at = now() - interval '4 days',
+                          opens_at = now() - interval '1 minute' where id = v43;
   insert into public.designs (slug, artist_id, drop_id, name, category, art_front_url, status, originality_confirmed)
   values ('next-up', '11111111-1111-4111-8111-000000000002', v43, 'Next Up', 'Minimal', '/seed/margin.svg', 'approved', true);
 end $$;

@@ -4,6 +4,7 @@ import { BagCount } from './BagCount';
 
 const NAV = [
   { href: '/', label: 'Live drop' },
+  { href: '/topics', label: 'Topics' },
   { href: '/pulse', label: 'The Pulse' },
   { href: '/artists', label: 'Artists' },
   { href: '/how-it-works', label: 'How it works' },
@@ -18,9 +19,9 @@ export function Header({ signedIn, handle, isAdmin, isArtist, unread }: {
         <Link href="/" className="font-display text-[30px] md:text-[34px] leading-none tracking-wide misprint">
           INKPULSE
         </Link>
-        <nav aria-label="Primary" className="hidden md:flex gap-6 font-mono font-bold text-[13px] tracking-widest uppercase">
+        <nav aria-label="Primary" className="hidden md:flex gap-4 lg:gap-6 font-mono font-bold text-[11px] lg:text-[13px] tracking-wider lg:tracking-widest uppercase">
           {NAV.map((n) => (
-            <Link key={n.href} href={n.href} className="py-2 border-b-[3px] border-transparent hover:border-pink">
+            <Link key={n.href} href={n.href} className="py-2 whitespace-nowrap border-b-[3px] border-transparent hover:border-pink">
               {n.label}
             </Link>
           ))}
@@ -58,7 +59,7 @@ export function Header({ signedIn, handle, isAdmin, isArtist, unread }: {
 }
 
 function Ticker() {
-  const line = 'NEW DROP EVERY MONDAY ✦ VOTE ✦ BACK EARLY ✦ TOP 3 PRINT FRIDAY ✦ EVERY TEE PAYS ITS ARTIST ✦ ';
+  const line = 'NEW TOPIC EVERY MONDAY ✦ ARTISTS ANSWER IT ✦ YOU VOTE ✦ BACK EARLY ✦ TOP 3 PRINT FRIDAY ✦ EVERY TEE PAYS ITS ARTIST ✦ ';
   return (
     <div className="bg-ink text-acid h-9 overflow-hidden flex items-center border-t-2 border-ink" aria-hidden="true">
       <div className="flex whitespace-nowrap font-display text-[17px] tracking-[2px] animate-tick">

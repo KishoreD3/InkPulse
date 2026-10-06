@@ -21,6 +21,12 @@ export async function tick() {
   if (lockErr) throw lockErr;
   log.locked = locked;
 
+  // Keep two drops scheduled ahead, publish topics whose time has come, nudge artists on the last day.
+  await admin.rpc('ensure_next_drop');
+  const [{ data: topics }, { data: reminders }] = await Promise.all([admin.rpc('publish_due_topics'), admin.rpc('remind_closing_topics')]);
+  log.topics = topics;
+  log.reminders = reminders;
+
   log.settled = await settleBackings();
   log.printed = await printDueDrops();
   log.notified = await dispatchPending();

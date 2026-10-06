@@ -3,8 +3,8 @@ import { dropLabel, inr, weekday } from '@/lib/format';
 import type { Drop, Settings } from '@/lib/types';
 
 /** Black poster card: drop number, countdown to Thursday's lock, Mon/Thu/Fri strip. */
-export function DropHero({ drop, settings, voters, slotsLocked }: {
-  drop: Drop; settings: Settings; voters: number; slotsLocked: number;
+export function DropHero({ drop, settings, voters, slotsLocked, topic }: {
+  drop: Drop; settings: Settings; voters: number; slotsLocked: number; topic?: string;
 }) {
   const live = drop.status === 'live';
   const target = live ? drop.locks_at : drop.status === 'scheduled' ? drop.opens_at : drop.prints_at;
@@ -22,6 +22,7 @@ export function DropHero({ drop, settings, voters, slotsLocked }: {
       <div aria-hidden className="absolute top-3 right-3 w-[86px] h-[86px] md:w-[104px] md:h-[104px] rounded-full bg-pink text-ink rotate-12 grid place-items-center font-marker text-sm md:text-base leading-tight text-center">
         TOP {settings.winners_per_drop}<br />GET<br />PRINTED
       </div>
+      {topic && <p className="font-display text-2xl md:text-3xl uppercase leading-none pt-1 pr-24">“{topic}”</p>}
       <p className="label-mono text-mist pt-2">{label}</p>
       <Countdown to={target} className="font-display text-[64px] md:text-[80px] leading-[0.9] text-acid" unitsClassName="font-mono text-[10px] tracking-[3px] text-mist" />
       <ol className="grid grid-cols-3 gap-2 pt-1" aria-label="Weekly schedule">

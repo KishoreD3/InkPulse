@@ -27,7 +27,12 @@ async function checkImage(file: File): Promise<string | null> {
   return null;
 }
 
-export function SubmitWizard({ userId, categories, existing }: { userId: string; categories: string[]; existing: Design | null }) {
+export interface OpenTopic { dropId: string; number: number; title: string; brief: string | null; closes: string; closesLabel: string }
+
+export function SubmitWizard({ userId, categories, existing, topics, initialTopic, nextReveal }: {
+  userId: string; categories: string[]; existing: Design | null;
+  topics: OpenTopic[]; initialTopic: string | null; nextReveal: string | null;
+}) {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [art, setArt] = useState(existing?.art_front_url ?? '');
@@ -41,6 +46,9 @@ export function SubmitWizard({ userId, categories, existing }: { userId: string;
   const [preview, setPreview] = useState(colours[0] ?? 'Ink black');
   const [original, setOriginal] = useState(existing?.originality_confirmed ?? false);
   const [busy, setBusy] = useState(false);
+  const [topicId, setTopicId] = useState<string>(
+    (topics.find((t) => t.dropId === (existing?.submitted_for ?? initialTopic)) ?? topics[0])?.dropId ?? '');
+  const topic = topics.find((t) => t.dropId === topicId) ?? null;
 
   async function upload(file: File) {
     const problem = await checkImage(file);
@@ -58,7 +66,7 @@ export function SubmitWizard({ userId, categories, existing }: { userId: string;
   async function save(submit: boolean) {
     setBusy(true);
     const res = await saveDesign({
-      id: existing?.id, name, story, category, perk, colours, artFrontUrl: art, originality: original as true, submit,
+      id: existing?.id, name, story, category, perk, colours, artFrontUrl: art, originality: original as true, submit, submittedFor: topicId || null,
       tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
     });
     setBusy(false);
@@ -72,6 +80,23 @@ export function SubmitWizard({ userId, categories, existing }: { userId: string;
 
   return (
     <div className="flex flex-col gap-6 pt-6">
+      {topics.length > 0 ? (
+        <section className="bg-acid border-2 border-ink rounded-[18px] shadow-hard-sm p-4 flex flex-col gap-2" aria-label="Topic">
+          <p className="label-mono">Answering the topic</p>
+          {topics.length > 1 ? (
+            <select className="input !bg-card font-display text-xl uppercase" value={topicId} onChange={(e) => setTopicId(e.target.value)} aria-label="Topic">
+              {topics.map((t) => <option key={t.dropId} value={t.dropId}>{t.title} · drop {String(t.number).padStart(3, '0')}</option>)}
+            </select>
+          ) : <p className="font-display text-3xl uppercase leading-none">{topic?.title}</p>}
+          {topic?.brief && <p className="text-sm">{topic.brief}</p>}
+          <p className="text-sm font-bold">Submissions close {topic?.closesLabel} IST.</p>
+        </section>
+      ) : (
+        <section className="border-2 border-dashed border-ink rounded-[18px] p-4 text-sm">
+          <p className="font-bold">No topic is open for submissions right now.</p>
+          <p>{nextReveal ? `The next topic is revealed ${nextReveal} IST. ` : ''}You can prepare your artwork and save it as a draft, then submit it when the topic opens.</p>
+        </section>
+      )}
       <ol className="grid grid-cols-5 gap-1.5" aria-label="Steps">
         {STEPS.map((s, i) => (
           <li key={s} className={`border-2 border-ink rounded-lg px-1.5 py-1 text-center font-mono font-bold text-[10px] tracking-wider ${i === step ? 'bg-pink' : i < step ? 'bg-acid' : 'bg-card'}`}
@@ -144,14 +169,15 @@ export function SubmitWizard({ userId, categories, existing }: { userId: string;
               <p><strong>Category:</strong> {category}</p>
               <p><strong>Colours:</strong> {colours.join(', ')}</p>
               {perk && <p><strong>Perk:</strong> {perk}</p>}
-              <p className="text-body pt-2">After review we schedule it into an upcoming Monday drop and send you a share kit.</p>
+              <p><strong>Topic:</strong> {topic ? `${topic.title} (drop ${String(topic.number).padStart(3, '0')})` : 'none open — save as draft'}</p>
+              <p className="text-body pt-2">We review every entry after submissions close. If it’s approved it goes up for voting with the rest of this topic, and you get a share kit.</p>
             </section>
           )}
 
           <div className="flex gap-3 flex-wrap">
             {step > 0 && <button className="btn-white" onClick={() => setStep(step - 1)}>Back</button>}
             {step < 4 && <button className="btn-pink" disabled={!canNext} onClick={() => setStep(step + 1)}>Next</button>}
-            {step === 4 && <button className="btn-pink" disabled={busy} onClick={() => save(true)}>{busy ? 'Submitting…' : 'Submit for review'}</button>}
+            {step === 4 && <button className="btn-pink" disabled={busy || !topic} onClick={() => save(true)}>{busy ? 'Submitting…' : 'Submit for review'}</button>}
             {art && name && <button className="btn-white" disabled={busy || !original} onClick={() => save(false)} title={!original ? 'Confirm originality to save' : undefined}>Save draft</button>}
           </div>
         </div>

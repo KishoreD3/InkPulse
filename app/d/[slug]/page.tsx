@@ -12,6 +12,7 @@ import { FollowButton } from '@/components/FollowButton';
 import { ShareButton } from '@/components/ShareButton';
 import { ShareKit } from '@/components/ShareKit';
 import { WaitlistButton } from '@/components/WaitlistButton';
+import { getTopic, topicTitle } from '@/lib/topics';
 import { ReportButton } from '@/components/ReportButton';
 import { Tee, colourway, tileFor } from '@/components/Tee';
 import type { Comment, DesignWithArtist, Drop, PriceType, Review } from '@/lib/types';
@@ -52,6 +53,7 @@ export default async function DesignPage({ params }: { params: { slug: string } 
   ]);
 
   const d = drop as Drop | null;
+  const topic = d ? await getTopic(d.id) : null;
   const quote = (quoteRows as { price: number; price_type: PriceType; order_type: 'backing' | 'retail' }[] | null)?.[0] ?? null;
   const votingOpen = design.status === 'live' && d?.status === 'live' && new Date(d.locks_at) > new Date();
 
@@ -95,7 +97,7 @@ export default async function DesignPage({ params }: { params: { slug: string } 
   return (
     <div className="container-page pb-16">
       <nav aria-label="Breadcrumb" className="py-4 label-mono text-muted flex gap-2 flex-wrap">
-        <Link href="/">{d ? dropLabel(d.number) : 'Designs'}</Link><span>/</span><span>{design.category}</span><span>/</span>
+        <Link href="/">{d ? dropLabel(d.number) : 'Designs'}</Link><span>/</span>{d && <><Link href="/topics">{topicTitle(topic)}</Link><span>/</span></>}
         <span className="text-ink">{design.name}</span>
       </nav>
 
