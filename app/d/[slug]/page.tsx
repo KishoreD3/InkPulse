@@ -1,0 +1,181 @@
+import type { Metadata } from 'next';
+import Link from 'next/link';
+import { notFound } from 'next/navigation';
+import { createClient } from '@/lib/supabase/server';
+import { DESIGN_SELECT, getSettings } from '@/lib/data';
+import { getSession } from '@/lib/auth';
+import { dropLabel, inr, timeAgo } from '@/lib/format';
+import { BuyBox } from '@/components/BuyBox';
+import { Avatar } from '@/components/PostCard';
+import { CommentForm } from '@/components/CommentForm';
+import { FollowButton } from '@/components/FollowButton';
+import { ShareButton } from '@/components/ShareButton';
+import { ReportButton } from '@/components/ReportButton';
+import { Tee, colourway, tileFor } from '@/components/Tee';
+import type { Comment, DesignWithArtist, Drop, PriceType } from '@/lib/types';
+
+export const dynamic = 'force-dynamic';
+
+async function load(slug: string) {
+  const { data } = await createClient().from('designs').select(DESIGN_SELECT).eq('slug', slug).maybeSingle();
+  return data as DesignWithArtist | null;
+}
+
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+  const d = await load(params.slug);
+  if (!d) return { title: 'Design not found' };
+  return {
+    title: `${d.name} by @${d.artist?.handle}`,
+    description: d.story ?? `Vote for ${d.name} on INKPULSE. Only the top 3 get printed.`,
+    openGraph: { images: [d.art_front_url] },
+  };
+}
+
+export default async function DesignPage({ params }: { params: { slug: string } }) {
+  const design = await load(params.slug);
+  if (!design) notFound();
+  const supabase = createClient();
+  const [settings, session] = await Promise.all([getSettings(), getSession()]);
+
+  const [{ data: drop }, { data: quoteRows }, { data: comments }, { data: siblings }] = await Promise.all([
+    design.drop_id ? supabase.from('drops').select('*').eq('id', design.drop_id).maybeSingle() : Promise.resolve({ data: null }),
+    supabase.rpc('price_quote', { p_design: design.id }),
+    supabase.from('comments').select('*, author:profiles!comments_author_id_fkey(id, handle, name, avatar_url, is_artist)')
+      .eq('design_id', design.id).order('created_at', { ascending: false }).limit(30),
+    design.drop_id
+      ? supabase.from('designs').select(DESIGN_SELECT).eq('drop_id', design.drop_id).neq('id', design.id)
+          .in('status', ['live', 'won', 'lost']).order('vote_count', { ascending: false }).limit(4)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const d = drop as Drop | null;
+  const quote = (quoteRows as { price: number; price_type: PriceType; order_type: 'backing' | 'retail' }[] | null)?.[0] ?? null;
+  const votingOpen = design.status === 'live' && d?.status === 'live' && new Date(d.locks_at) > new Date();
+
+  let voted = false;
+  let following = false;
+  if (session) {
+    const [{ count: v }, { count: f }] = await Promise.all([
+      supabase.from('votes').select('id', { count: 'exact', head: true }).eq('design_id', design.id).is('withdrawn_at', null),
+      supabase.from('follows').select('artist_id', { count: 'exact', head: true }).eq('follower_id', session.user.id).eq('artist_id', design.artist_id),
+    ]);
+    voted = (v ?? 0) > 0;
+    following = (f ?? 0) > 0;
+  }
+
+  // Live rank among the drop's designs.
+  let rank: number | null = design.final_rank;
+  if (votingOpen && design.drop_id) {
+    const { count } = await supabase.from('designs').select('id', { count: 'exact', head: true })
+      .eq('drop_id', design.drop_id).eq('status', 'live').gt('vote_count', design.vote_count);
+    rank = (count ?? 0) + 1;
+  }
+  const inPrintZone = rank !== null && rank <= settings.winners_per_drop && design.status !== 'lost';
+  const { data: stats } = await supabase.rpc('artist_stats', { p_artist: design.artist_id });
+  const printed = (stats as { printed: number }[] | null)?.[0]?.printed ?? 0;
+
+  return (
+    <div className="container-page pb-16">
+      <nav aria-label="Breadcrumb" className="py-4 label-mono text-muted flex gap-2 flex-wrap">
+        <Link href="/">{d ? dropLabel(d.number) : 'Designs'}</Link><span>/</span><span>{design.category}</span><span>/</span>
+        <span className="text-ink">{design.name}</span>
+      </nav>
+
+      <div className="grid gap-10 md:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] items-start">
+        <div className="flex flex-col gap-6">
+          <BuyBox
+            design={design}
+            sizes={settings.sizes}
+            quote={quote}
+            retailPrice={settings.retail_price}
+            threshold={settings.backer_threshold}
+            votingOpen={Boolean(votingOpen)}
+            voted={voted}
+            signedIn={Boolean(session)}
+            rankLabel={rank ? `#${rank}` : undefined}
+            stamp={design.status === 'won' ? 'PRINTED' : design.status === 'lost' ? 'FINAL' : inPrintZone ? 'PRINT ZONE' : 'IN THE RACE'}
+          />
+        </div>
+
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-3">
+            <div className="flex items-start justify-between gap-3">
+              <h1 className="h-display text-[48px] md:text-[72px] leading-[0.9] misprint">{design.name}</h1>
+              <ShareButton title={`Vote for ${design.name} on INKPULSE`} path={`/d/${design.slug}`} />
+            </div>
+            <div className="flex items-center gap-3">
+              <Link href={`/a/${design.artist?.handle}`}><Avatar handle={design.artist?.handle ?? '?'} url={design.artist?.avatar_url} size={44} /></Link>
+              <div className="flex-1">
+                <Link href={`/a/${design.artist?.handle}`} className="font-bold">@{design.artist?.handle}</Link>
+                <p className="label-mono text-muted">{printed} designs printed</p>
+              </div>
+              {session?.user.id !== design.artist_id && (
+                <FollowButton artistId={design.artist_id} initial={following} signedIn={Boolean(session)} />
+              )}
+            </div>
+            {design.status === 'won' && <p className="sticker bg-acid self-start">Printed · finished #{design.final_rank}</p>}
+            {design.status === 'lost' && <p className="sticker bg-card self-start">Didn&apos;t make the cut · finished #{design.final_rank}</p>}
+          </div>
+
+          {design.story && (
+            <section className="flex flex-col gap-2">
+              <h2 className="h-display text-3xl"><span className="highlight">From the artist</span></h2>
+              <p className="text-[17px] leading-relaxed text-body">{design.story}</p>
+              {design.perk && <p className="font-marker text-lg -rotate-1">Backer perk: {design.perk}</p>}
+            </section>
+          )}
+
+          <section className="border-2 border-dashed border-ink rounded-[18px] p-4 flex flex-col gap-2.5">
+            <h2 className="font-display text-xl tracking-wide">WHERE YOUR {quote ? inr(quote.price) : 'MONEY'} GOES</h2>
+            <div className="flex h-5 border-2 border-ink rounded-md overflow-hidden" aria-hidden>
+              <div className="flex-[55] bg-ink border-r-2 border-ink" /><div className="flex-[20] bg-pink border-r-2 border-ink" /><div className="flex-[25] bg-cobalt" />
+            </div>
+            <ul className="text-sm flex flex-col gap-1">
+              <li className="flex justify-between"><span>DTG print, shipping, ops</span><strong>{settings.unit_cost ? inr(settings.unit_cost + settings.shipping_cost) : '[₹ COST]'}</strong></li>
+              <li className="flex justify-between"><span>@{design.artist?.handle} (artist)</span><strong>{settings.artist_pct ? `${settings.artist_pct}%` : '[ARTIST %]'}</strong></li>
+              <li className="flex justify-between"><span>Net profit</span><strong>Rest</strong></li>
+            </ul>
+            <p className="text-sm bg-cobalt text-white border-2 border-ink rounded-xl p-3">
+              {settings.cause_pct_of_profit}% of our net profit on every drop funds this drop’s cause. The exact ₹ is printed on your receipt.
+            </p>
+          </section>
+        </div>
+      </div>
+
+      <div className="grid gap-10 md:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] pt-12 border-t-2 border-ink mt-12">
+        <section className="flex flex-col gap-4" aria-labelledby="comments-title">
+          <h2 id="comments-title" className="h-display text-3xl">Comments</h2>
+          <CommentForm designId={design.id} signedIn={Boolean(session)} />
+          {((comments ?? []) as Comment[]).map((c) => (
+            <div key={c.id} className="flex gap-3">
+              <Avatar handle={c.author?.handle ?? '?'} url={c.author?.avatar_url} size={38} />
+              <div className="flex-1 text-[15px] leading-relaxed">
+                <span className="font-bold">@{c.author?.handle}</span>{' '}
+                {c.author_id === design.artist_id && <span className="sticker bg-pink !text-[10px] !py-0">Artist</span>}{' '}
+                <span className="font-mono text-[11px] text-muted">{timeAgo(c.created_at)}</span>
+                <p>{c.body}</p>
+              </div>
+              <ReportButton targetType="comment" targetId={c.id} signedIn={Boolean(session)} />
+            </div>
+          ))}
+        </section>
+        <section className="flex flex-col gap-3.5">
+          <h2 className="h-display text-3xl">{d ? `Also in ${String(d.number).padStart(3, '0')}` : 'More designs'}</h2>
+          {((siblings ?? []) as DesignWithArtist[]).map((s) => {
+            const c = colourway(s); const t = tileFor(s.slug);
+            return (
+              <Link key={s.id} href={`/d/${s.slug}`} className="flex items-center gap-3.5 p-2.5 card shadow-hard-sm">
+                <span className={`w-[72px] h-[72px] border-2 border-ink rounded-xl grid place-items-center ${t.dark ? 'halftone-dark' : 'halftone-light'}`} style={{ backgroundColor: t.bg }}>
+                  <Tee shirt={c.hex} art={c.art} size={68} />
+                </span>
+                <span className="flex-1"><span className="block font-display text-xl uppercase">{s.name}</span><span className="block font-mono text-[11px] text-muted">@{s.artist?.handle}</span></span>
+                <span className="font-display text-lg">{s.vote_count.toLocaleString('en-IN')}</span>
+              </Link>
+            );
+          })}
+          <div className="pt-2"><ReportButton targetType="design" targetId={design.id} signedIn={Boolean(session)} /></div>
+        </section>
+      </div>
+    </div>
+  );
+}

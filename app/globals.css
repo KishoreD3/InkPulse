@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { -webkit-tap-highlight-color: transparent; }
+  body { @apply bg-paper text-ink font-sans antialiased; }
+  :focus-visible { outline: 3px solid #2F4BFF; outline-offset: 2px; }
+  ::selection { background: #E4FF3B; color: #111111; }
+}
+
+@layer components {
+  /* Neo-brutal building blocks */
+  .card { @apply bg-card border-2 border-ink rounded-2xl shadow-hard; }
+  .card-flat { @apply bg-card border-2 border-ink rounded-2xl; }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 min-h-[44px] px-5 rounded-xl border-2 border-ink
+           font-display tracking-wide text-lg uppercase transition-transform active:translate-x-[2px] active:translate-y-[2px]
+           disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-pink { @apply btn bg-pink text-ink shadow-hard active:shadow-none; }
+  .btn-ink { @apply btn bg-ink text-acid; }
+  .btn-white { @apply btn bg-card text-ink shadow-hard active:shadow-none; }
+  .btn-sm { @apply min-h-[40px] px-3 text-base; }
+  .chip { @apply inline-flex items-center h-10 px-4 rounded-full border-2 border-ink font-bold text-sm whitespace-nowrap; }
+  .chip-on { @apply chip bg-ink text-acid; }
+  .chip-off { @apply chip bg-card text-ink; }
+  .label-mono { @apply font-mono font-bold text-[11px] tracking-widest uppercase; }
+  .h-display { @apply font-display uppercase leading-[0.95] tracking-wide; }
+  .highlight { background: linear-gradient(transparent 58%, #E4FF3B 58%); @apply px-1; }
+  .misprint { text-shadow: 3px 3px 0 #FF3EA5; }
+  .misprint-blue { text-shadow: 3px 3px 0 #2F4BFF; }
+  .sticker { @apply inline-block border-2 border-ink rounded px-2 py-1 font-mono font-bold text-[11px] tracking-widest uppercase; }
+  .halftone-dark { background-image: radial-gradient(rgba(255,255,255,0.14) 1px, transparent 1.6px); background-size: 7px 7px; }
+  .halftone-light { background-image: radial-gradient(rgba(17,17,17,0.14) 1px, transparent 1.6px); background-size: 7px 7px; }
+  .stripes { background: repeating-linear-gradient(-45deg, #FF3EA5 0 7px, #FF6FBC 7px 14px); }
+  .input {
+    @apply w-full min-h-[44px] px-4 rounded-xl border-2 border-ink bg-card text-ink placeholder:text-muted
+           focus:outline-none focus:ring-4 focus:ring-cobalt/30;
+  }
+  .field-label { @apply block font-display uppercase tracking-wide text-lg mb-1; }
+  .container-page { @apply mx-auto w-full max-w-[1280px] px-4 sm:px-8; }
+  .sr-only-focusable:not(:focus) { @apply sr-only; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-tick, .animate-pop { animation: none !important; }
+}
