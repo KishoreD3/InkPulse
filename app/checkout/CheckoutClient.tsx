@@ -33,9 +33,11 @@ interface Props {
     price: number; priceType: PriceType; colour: string; size: string; qty: number;
   };
   settings: { retail_price: number; shipping_fee: number; free_shipping_over: number; cause_pct: number; sizes: string[] };
+  initialCode: string | null;
+  rewards: { code: string; label: string }[];
 }
 
-export function CheckoutClient({ mode, addresses, backing, settings }: Props) {
+export function CheckoutClient({ mode, addresses, backing, settings, initialCode, rewards }: Props) {
   const router = useRouter();
   const [addressId, setAddressId] = useState(addresses[0]?.id ?? '');
   const [adding, setAdding] = useState(addresses.length === 0);
@@ -43,6 +45,10 @@ export function CheckoutClient({ mode, addresses, backing, settings }: Props) {
   const [bag, setBag] = useState<CartLine[]>([]);
   const [bagDesigns, setBagDesigns] = useState<Record<string, { colours: Colourway[]; art_front_url: string }>>({});
   const [busy, setBusy] = useState(false);
+  const [codeInput, setCodeInput] = useState(initialCode ?? '');
+  const [applied, setApplied] = useState<{ code: string; amount: number } | null>(null);
+  const [codeMsg, setCodeMsg] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
 
   useEffect(() => { if (addresses.length && !addressId) setAddressId(addresses[0].id); }, [addresses, addressId]);
   useEffect(() => {
@@ -56,15 +62,35 @@ export function CheckoutClient({ mode, addresses, backing, settings }: Props) {
 
   const subtotal = useMemo(() => (backing ? backing.price * qty : bag.reduce((s, l) => s + settings.retail_price * l.qty, 0)), [backing, qty, bag, settings.retail_price]);
   const shipping = settings.free_shipping_over && subtotal >= settings.free_shipping_over ? 0 : settings.shipping_fee;
-  const total = subtotal + shipping;
+  const discount = applied?.amount ?? 0;
+  const total = subtotal - discount + shipping;
   const fullPrice = backing ? settings.retail_price * qty : subtotal;
+  const orderType = backing ? 'backing' : 'retail';
+
+  async function applyCode(raw: string) {
+    const code = raw.trim().toUpperCase();
+    if (!code) return;
+    setChecking(true); setCodeMsg(null);
+    const res = await fetch('/api/checkout/code', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code, type: orderType, subtotal }) });
+    const data = await res.json().catch(() => ({}));
+    setChecking(false);
+    if (!res.ok) { setApplied(null); setCodeMsg(data.error ?? 'That code isn’t valid.'); return; }
+    setApplied(data); setCodeInput(data.code);
+  }
+
+  // Re-check the code when the subtotal changes (quantity, bag contents).
+  useEffect(() => {
+    const code = applied?.code ?? (initialCode && !codeMsg ? initialCode : null);
+    if (code && subtotal > 0) void applyCode(code);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subtotal]);
 
   async function pay() {
     if (!addressId) { toast({ message: 'Add a delivery address first.', tone: 'error' }); return; }
     setBusy(true);
     const body = backing
-      ? { mode: 'back', addressId, design: backing.design.slug, colour: backing.colour, size: backing.size, qty }
-      : { mode: 'bag', addressId, lines: bag.map((l) => ({ designId: l.designId, colour: l.colour, size: l.size, qty: l.qty })) };
+      ? { mode: 'back', addressId, design: backing.design.slug, colour: backing.colour, size: backing.size, qty, code: applied?.code ?? null }
+      : { mode: 'bag', addressId, lines: bag.map((l) => ({ designId: l.designId, colour: l.colour, size: l.size, qty: l.qty })), code: applied?.code ?? null };
     const res = await fetch('/api/checkout', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
     const data = await res.json();
     if (!res.ok) { setBusy(false); toast({ message: data.error ?? 'Could not start payment.', tone: 'error' }); return; }
@@ -127,9 +153,33 @@ export function CheckoutClient({ mode, addresses, backing, settings }: Props) {
         <p className="label-mono text-body">{mode === 'back' ? 'Prints Friday after voting locks · ships in a few days' : 'Ships with the next print batch'}</p>
       </section>
 
+      <section className="flex flex-col gap-2" aria-labelledby="code-title">
+        <h2 id="code-title" className="font-display text-xl tracking-wide">CODE</h2>
+        <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); void applyCode(codeInput); }}>
+          <label htmlFor="promo" className="sr-only">Discount code</label>
+          <input id="promo" value={codeInput} onChange={(e) => { setCodeInput(e.target.value.toUpperCase()); setCodeMsg(null); }}
+            className="input flex-1 font-mono uppercase" placeholder="LAUNCH10" maxLength={24} autoComplete="off" />
+          {applied
+            ? <button type="button" className="btn-white whitespace-nowrap" onClick={() => { setApplied(null); setCodeInput(''); }}>Remove</button>
+            : <button type="submit" className="btn-white whitespace-nowrap" disabled={checking || !codeInput.trim()}>{checking ? 'Checking…' : 'Apply'}</button>}
+        </form>
+        {codeMsg && <p className="text-sm text-[#B00020]" role="alert">{codeMsg}</p>}
+        {applied && <p className="text-sm font-bold" role="status">{applied.code} applied · you save {inr(applied.amount)}</p>}
+        {!applied && rewards.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {rewards.map((r) => (
+              <button key={r.code} type="button" className="chip" onClick={() => { setCodeInput(r.code); void applyCode(r.code); }}>
+                {r.label} · <span className="font-mono">{r.code}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+
       <section className="bg-card border-2 border-ink rounded-md p-4 font-mono text-sm flex flex-col gap-2">
         <Row k="PRICE" v={inr(fullPrice)} />
         {backing && backing.priceType === 'backer' && <Row k="EARLY-BACKER PRICE" v={`−${inr(fullPrice - subtotal)}`} bold />}
+        {applied && <Row k={`CODE ${applied.code}`} v={`−${inr(applied.amount)}`} bold />}
         <Row k="SHIPPING" v={shipping ? inr(shipping) : 'FREE'} />
         <div className="border-t-2 border-dashed border-ink my-1" />
         <Row k="TOTAL (GST INCL.)" v={inr(total)} bold />

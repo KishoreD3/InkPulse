@@ -3,6 +3,7 @@ import { requireSession } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { getSettings } from '@/lib/data';
 import { CheckoutClient } from './CheckoutClient';
+import { describeCode, myRewardCodes } from '@/lib/discounts';
 import type { Address, Design, PriceType } from '@/lib/types';
 
 export const metadata = { title: 'Checkout' };
@@ -11,11 +12,12 @@ export const dynamic = 'force-dynamic';
 export default async function CheckoutPage({ searchParams }: { searchParams: Record<string, string | undefined> }) {
   const mode = searchParams.from === 'bag' ? 'bag' : 'back';
   const qs = new URLSearchParams(Object.entries(searchParams).filter(([, v]) => v) as [string, string][]).toString();
-  await requireSession(`/checkout?${qs}`);
+  const session = await requireSession(`/checkout?${qs}`);
   const supabase = createClient();
-  const [settings, { data: addresses }] = await Promise.all([
+  const [settings, { data: addresses }, rewards] = await Promise.all([
     getSettings(),
     supabase.from('addresses').select('*').order('is_default', { ascending: false }),
+    myRewardCodes(session.user.id),
   ]);
 
   let backing: { design: Design; price: number; priceType: PriceType } | null = null;
@@ -41,6 +43,8 @@ export default async function CheckoutPage({ searchParams }: { searchParams: Rec
           size: searchParams.size ?? 'L',
           qty: Math.min(5, Math.max(1, Number(searchParams.qty) || 1)),
         } : null}
+        initialCode={searchParams.code ?? null}
+        rewards={rewards.map((r) => ({ code: r.code, label: describeCode(r) }))}
         settings={{ retail_price: settings.retail_price, shipping_fee: settings.shipping_fee, free_shipping_over: settings.free_shipping_over, cause_pct: settings.cause_pct_of_profit, sizes: settings.sizes }}
       />
     </div>

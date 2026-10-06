@@ -119,6 +119,15 @@ supabase/tests       smoke tests  (npm run db:test)
 public/              PWA manifest, service worker, icons, demo artwork
 ```
 
+## Growth & after-sales
+- **Share cards** — every design has a link-preview image at `/d/<slug>/card` and a 1080×1920 story card (`?size=story&kind=voted|backed|artist`). Voting, backing and the artist studio all offer a "Story card" download.
+- **Tracked links** — add `?src=<tag>` to any link (the share buttons do this for WhatsApp, Instagram, X). Votes and orders remember the tag; artists see votes and backers by source in the studio.
+- **Invites** — every member has `/?ref=<handle>`. The friend gets a one-time welcome code (`HI-…`); the inviter gets a code (`THX-…`) once the friend's first order is paid. Amounts in Admin → Settings (0 turns it off).
+- **Promo codes** — Admin → Codes: % or ₹ off, backing/retail/all, minimum order, total and per-person limits, expiry. A code is only "used" while the order stands; released backings give it back. Test seed includes `LAUNCH10`.
+- **Notify me / back by demand** — finished designs show a waitlist button. Admin → Dashboard → Most wanted → "Bring it back" reopens retail for N days and notifies everyone on the list.
+- **Reviews** — after delivery, buyers rate each item (stars, fit, text, up to 3 photos). Shown on the design page with an average and a fit verdict; reportable, hideable in Moderation.
+- **Exchanges & returns** — after delivery (within the window in Settings) buyers request a size exchange or return with photos; Admin → Returns approves/declines/completes and the member is notified. Refunds are still issued from Orders.
+
 ## Install as an app
 - **Android/Chrome**: “Install the INKPULSE app” button on the Profile page, or the browser's install prompt.
 - **iPhone**: Safari → Share → Add to Home Screen (push works on iOS 16.4+ once installed).

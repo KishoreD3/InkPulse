@@ -34,6 +34,10 @@ export interface Settings {
   support_email: string;
   require_phone_for_votes: boolean;
   admin_emails: string[];
+  referral_reward: number;
+  welcome_reward: number;
+  return_window_days: number;
+  reopen_days: number;
 }
 
 export interface Profile {
@@ -149,6 +153,8 @@ export interface Order {
   captured_at: string | null;
   released_at: string | null;
   created_at: string;
+  discount_code: string | null;
+  source: string | null;
   items?: OrderItem[];
   shipment?: { carrier: string | null; awb: string | null; tracking_url: string | null; shipped_at: string | null; delivered_at: string | null } | null;
 }
@@ -196,4 +202,33 @@ export interface CartLine {
   colour: string;
   size: string;
   qty: number;
+}
+
+export interface ReturnRequest {
+  id: string;
+  order_id: string;
+  user_id: string;
+  kind: 'exchange' | 'return';
+  reason: 'size' | 'damaged' | 'misprint' | 'wrong_item' | 'other';
+  new_size: string | null;
+  details: string | null;
+  photo_urls: string[];
+  status: 'open' | 'approved' | 'rejected' | 'completed';
+  admin_note: string | null;
+  created_at: string;
+  resolved_at: string | null;
+}
+
+export interface Review {
+  id: string;
+  order_item_id: string;
+  design_id: string;
+  user_id: string;
+  rating: number;
+  fit: 'small' | 'true' | 'large' | null;
+  size: string | null;
+  body: string | null;
+  photo_urls: string[];
+  created_at: string;
+  author?: Pick<Profile, 'id' | 'handle' | 'name' | 'avatar_url'> | null;
 }

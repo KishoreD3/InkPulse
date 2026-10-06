@@ -98,3 +98,6 @@ update public.settings set require_phone_for_votes = false;
 
 -- Schedule drop 43 so the Monday job has something to open.
 select public.ensure_next_drop();
+
+-- Demo promo code (test mode): 10% off anything, up to 500 uses.
+insert into public.discount_codes (code, kind, value, max_uses, note) values ('LAUNCH10', 'percent', 10, 500, 'Demo launch code');

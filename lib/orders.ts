@@ -4,10 +4,14 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient, createClient } from '@/lib/supabase/server';
 import { gstPart } from '@/lib/format';
 import * as rzp from '@/lib/payments/razorpay';
+import { CodeError, quoteCode } from '@/lib/discounts';
 import type { Address, Design, OrderType, PriceType, Settings } from '@/lib/types';
+
+const extras = { code: z.string().max(24).optional().nullable() };
 
 export const checkoutSchema = z.discriminatedUnion('mode', [
   z.object({
+    ...extras,
     mode: z.literal('back'),
     addressId: z.string().uuid(),
     design: z.string().min(3),
@@ -16,6 +20,7 @@ export const checkoutSchema = z.discriminatedUnion('mode', [
     qty: z.coerce.number().int().min(1).max(5),
   }),
   z.object({
+    ...extras,
     mode: z.literal('bag'),
     addressId: z.string().uuid(),
     lines: z.array(z.object({
@@ -43,7 +48,7 @@ async function priceLine(supabase: SupabaseClient, settings: Settings, design: D
  * Backing = one design per order (one authorisation each), manual capture.
  * Retail  = a bag of printed winners, captured immediately.
  */
-export async function startCheckout(userId: string, input: CheckoutInput) {
+export async function startCheckout(userId: string, input: CheckoutInput, source?: string | null) {
   const supabase = createClient();
   const admin = createAdminClient();
   const { data: s } = await supabase.from('settings').select('*').single();
@@ -76,12 +81,25 @@ export async function startCheckout(userId: string, input: CheckoutInput) {
   const type: OrderType = lines[0].orderType;
   const subtotal = lines.reduce((sum, l) => sum + l.price * l.qty, 0);
   const shipping = settings.free_shipping_over && subtotal >= settings.free_shipping_over ? 0 : settings.shipping_fee;
-  const total = subtotal + shipping;
+  let discount = 0;
+  let discountCode: string | null = null;
+  if (input.code) {
+    try {
+      const q = await quoteCode(userId, input.code, type, subtotal);
+      discount = q.amount;
+      discountCode = q.code;
+    } catch (e) {
+      if (e instanceof CodeError) throw new CheckoutError(e.message);
+      throw e;
+    }
+  }
+  const total = subtotal - discount + shipping;
 
   const shipTo = { name: address.name, phone: address.phone, line1: address.line1, line2: address.line2, city: address.city, state: address.state, pin: address.pin };
   const { data: order, error } = await admin.from('orders').insert({
     user_id: userId, type, drop_id: type === 'backing' ? lines[0].design.drop_id : null,
-    ship_to: shipTo, subtotal, shipping, total, gst_included: gstPart(total, settings.gst_pct),
+    ship_to: shipTo, subtotal, discount, discount_code: discountCode, shipping, total, gst_included: gstPart(total, settings.gst_pct),
+    source: source && /^[a-z0-9_-]{1,32}$/.test(source) ? source : null,
   }).select('id, number').single();
   if (error || !order) throw new Error(`order insert failed: ${error?.message}`);
 

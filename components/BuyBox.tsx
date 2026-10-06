@@ -46,7 +46,12 @@ export function BuyBox(p: Props) {
     setBusy(true);
     const n = await sendVote(p.design.id, !voted);
     setBusy(false);
-    if (n !== null) { setVoted(!voted); setVotes(n); }
+    if (n !== null) {
+      if (!voted) {
+        toast({ message: 'Voted! Get your friends in before Thursday.', action: { label: 'Story card', href: `/d/${p.design.slug}/card?size=story&kind=voted&download=1` } });
+      }
+      setVoted(!voted); setVotes(n);
+    }
   }
 
   function act() {

@@ -6,7 +6,7 @@ import { DESIGN_STATUS_LABEL, dateShort, inr } from '@/lib/format';
 import { savePayoutDetails } from '@/app/actions/profile';
 import { ActionForm, Field, SubmitButton } from '@/components/forms';
 import { Tee, colourway } from '@/components/Tee';
-import { ShareButton } from '@/components/ShareButton';
+import { ShareKit } from '@/components/ShareKit';
 import type { Design } from '@/lib/types';
 
 export const metadata = { title: 'Artist studio' };
@@ -15,13 +15,18 @@ export const dynamic = 'force-dynamic';
 export default async function StudioPage() {
   const session = await requireArtist('/studio');
   const supabase = createClient();
-  const [settings, { data: designs }, { data: earnings }, { data: payouts }, { data: priv }] = await Promise.all([
+  const [settings, { data: designs }, { data: earnings }, { data: payouts }, { data: priv }, { data: sources }] = await Promise.all([
     getSettings(),
     supabase.from('designs').select('*').eq('artist_id', session.user.id).order('created_at', { ascending: false }),
     supabase.from('artist_earnings').select('amount, status, design_id').eq('artist_id', session.user.id),
     supabase.from('artist_payouts').select('*').eq('artist_id', session.user.id).order('paid_at', { ascending: false }),
     supabase.from('profile_private').select('pan, payout_upi, bank_account, bank_ifsc, kyc_status').eq('id', session.user.id).maybeSingle(),
+    supabase.rpc('artist_source_stats'),
   ]);
+  const bySource = new Map<string, { source: string; votes: number; backers: number }[]>();
+  ((sources ?? []) as { design_id: string; source: string; votes: number; backers: number }[]).forEach((r) => {
+    bySource.set(r.design_id, [...(bySource.get(r.design_id) ?? []), r]);
+  });
   const list = (designs ?? []) as Design[];
   const e = (earnings ?? []) as { amount: number; status: string; design_id: string }[];
   const sum = (s: string[]) => e.filter((x) => s.includes(x.status)).reduce((t, x) => t + x.amount, 0);
@@ -66,13 +71,27 @@ export default async function StudioPage() {
               </div>
               <div className="flex gap-2">
                 {['draft', 'changes_requested'].includes(d.status) && <Link href={`/submit?edit=${d.id}`} className="chip-off">Edit</Link>}
-                {['live', 'won'].includes(d.status) && (
-                  <>
-                    <Link href={`/d/${d.slug}`} className="chip-off">View</Link>
-                    <ShareButton title={`My design ${d.name} is live on INKPULSE — vote and back it before 5,000 votes`} path={`/d/${d.slug}`} />
-                  </>
-                )}
+                {['live', 'won', 'lost'].includes(d.status) && <Link href={`/d/${d.slug}`} className="chip-off">View</Link>}
               </div>
+              {['live', 'won'].includes(d.status) && (
+                <div className="basis-full flex flex-col gap-3 border-t-2 border-dashed border-ink pt-3">
+                  <p className="text-sm font-semibold">Share kit — each button uses its own tracked link, so you can see what works.</p>
+                  <ShareKit slug={d.slug} name={d.name} kind="artist" live={d.status === 'live'} />
+                  {(bySource.get(d.id) ?? []).length > 0 && (
+                    <table className="w-full max-w-md font-mono text-sm">
+                      <caption className="text-left label-mono text-muted pb-1">Where your votes came from</caption>
+                      <thead><tr className="text-left"><th className="font-bold">Source</th><th className="text-right">Votes</th><th className="text-right">Backers</th></tr></thead>
+                      <tbody>
+                        {(bySource.get(d.id) ?? []).map((r) => (
+                          <tr key={r.source} className="border-t border-dashed border-ink">
+                            <td>{r.source}</td><td className="text-right">{r.votes.toLocaleString('en-IN')}</td><td className="text-right">{r.backers}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}

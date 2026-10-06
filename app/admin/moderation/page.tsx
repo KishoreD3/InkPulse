@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/server';
 import { dateShort } from '@/lib/format';
-import { resolveReport } from '@/app/actions/admin';
+import { hideReview, resolveReport } from '@/app/actions/admin';
 import { ActionButton } from '@/components/admin';
 
 export const metadata = { title: 'Moderation' };
@@ -16,8 +16,14 @@ export default async function Moderation() {
   await Promise.all(reports.map(async (r) => {
     if (r.target_type === 'post') { const { data: x } = await db.from('posts').select('body').eq('id', r.target_id).maybeSingle(); previews.set(r.id, x?.body ?? '(deleted)'); }
     if (r.target_type === 'comment') { const { data: x } = await db.from('comments').select('body').eq('id', r.target_id).maybeSingle(); previews.set(r.id, x?.body ?? '(deleted)'); }
+    if (r.target_type === 'review') { const { data: x } = await db.from('reviews').select('rating, body').eq('id', r.target_id).maybeSingle(); previews.set(r.id, x ? `${'★'.repeat(x.rating)} ${x.body ?? ''}` : '(deleted)'); }
     if (r.target_type === 'design') { const { data: x } = await db.from('designs').select('name, slug').eq('id', r.target_id).maybeSingle(); previews.set(r.id, x ? `${x.name} → /d/${x.slug}` : '(deleted)'); }
   }));
+
+  const { data: latest } = await db.from('reviews')
+    .select('id, rating, body, photo_urls, created_at, author:profiles!reviews_user_id_fkey(handle), design:designs(name, slug)')
+    .eq('hidden', false).order('created_at', { ascending: false }).limit(15);
+  const reviews = (latest ?? []) as unknown as { id: string; rating: number; body: string | null; photo_urls: string[]; created_at: string; author: { handle: string } | null; design: { name: string; slug: string } | null }[];
 
   return (
     <div className="flex flex-col gap-5">
@@ -34,6 +40,22 @@ export default async function Moderation() {
             <ActionButton run={resolveReport.bind(null, r.id, 'hide')} className="chip-on">{r.target_type === 'design' ? 'Withdraw design' : 'Hide'}</ActionButton>
             <ActionButton run={resolveReport.bind(null, r.id, 'dismiss')}>Dismiss</ActionButton>
           </div>
+        </article>
+      ))}
+
+      <h2 className="h-display text-3xl pt-4">Latest reviews</h2>
+      {reviews.length === 0 && <p className="card-flat p-5">No reviews yet.</p>}
+      {reviews.map((r) => (
+        <article key={r.id} className="card p-4 flex flex-wrap gap-3 items-start">
+          <div className="flex-1 min-w-[220px]">
+            <p className="label-mono text-muted">@{r.author?.handle} · <Link href={`/d/${r.design?.slug}`} className="underline">{r.design?.name}</Link> · {dateShort(r.created_at)}</p>
+            <p><span aria-label={`${r.rating} out of 5`}>{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</span> {r.body}</p>
+          </div>
+          {r.photo_urls.map((u) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img key={u} src={u} alt="" className="w-16 h-16 object-cover border-2 border-ink rounded-lg" />
+          ))}
+          <ActionButton run={hideReview.bind(null, r.id)} confirm="Hide this review?">Hide</ActionButton>
         </article>
       ))}
     </div>

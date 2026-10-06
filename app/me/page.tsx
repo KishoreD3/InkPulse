@@ -7,6 +7,10 @@ import { Avatar } from '@/components/PostCard';
 import { PhoneVerify } from './PhoneVerify';
 import { AddressBook } from '@/components/AddressBook';
 import { AppSettings } from './AppSettings';
+import { CopyLink } from '@/components/CopyLink';
+import { describeCode, myRewardCodes } from '@/lib/discounts';
+import { getSettings } from '@/lib/data';
+import { inr } from '@/lib/format';
 import type { Address } from '@/lib/types';
 
 export const metadata = { title: 'Profile' };
@@ -15,12 +19,16 @@ export const dynamic = 'force-dynamic';
 export default async function MePage() {
   const session = await requireSession('/me');
   const supabase = createClient();
-  const [{ data: addresses }, { count: votes }, { count: backed }, { count: following }] = await Promise.all([
+  const [{ data: addresses }, { count: votes }, { count: backed }, { count: following }, rewards, { data: refStats }, settings] = await Promise.all([
     supabase.from('addresses').select('*').order('is_default', { ascending: false }),
     supabase.from('votes').select('id', { count: 'exact', head: true }).is('withdrawn_at', null),
     supabase.from('orders').select('id', { count: 'exact', head: true }).eq('type', 'backing').in('status', ['backed', 'won', 'printing', 'shipped', 'delivered']),
     supabase.from('follows').select('artist_id', { count: 'exact', head: true }).eq('follower_id', session.user.id),
+    myRewardCodes(session.user.id),
+    supabase.rpc('my_referrals'),
+    getSettings(),
   ]);
+  const refs = (refStats as { joined: number; converted: number }[] | null)?.[0] ?? { joined: 0, converted: 0 };
   const p = session.profile;
 
   return (
@@ -46,6 +54,31 @@ export default async function MePage() {
         {p.is_artist ? <Link href="/studio" className="chip-on">Artist studio</Link> : <Link href="/submit/become-artist" className="chip-off">Become an artist</Link>}
         {p.is_admin && <Link href="/admin" className="chip-on">Admin</Link>}
       </nav>
+
+      <section id="rewards" className="card p-5 flex flex-col gap-3 scroll-mt-28 bg-acid">
+        <h2 className="h-display text-2xl">Invite friends, get tees cheaper</h2>
+        <p className="text-sm">
+          {settings.welcome_reward > 0 && <>Friends who join with your link get {inr(settings.welcome_reward)} off their first tee. </>}
+          {settings.referral_reward > 0 && <>When their first order is paid, you get {inr(settings.referral_reward)} off.</>}
+        </p>
+        <div className="flex flex-wrap gap-2 items-center">
+          <code className="font-mono text-sm bg-card border-2 border-ink rounded-lg px-3 py-2 break-all">/?ref={p.handle}</code>
+          <CopyLink url={`/?ref=${p.handle}`} label="Copy invite link" text={`Vote on this week's tee drop with me on INKPULSE`} className="chip-on" />
+        </div>
+        <p className="label-mono">{refs.joined} joined · {refs.converted} bought their first tee</p>
+        {rewards.length > 0 && (
+          <div className="flex flex-col gap-2 pt-1">
+            <p className="font-bold">Your codes</p>
+            {rewards.map((r) => (
+              <div key={r.code} className="flex flex-wrap items-center gap-2 bg-card border-2 border-ink rounded-xl px-3 py-2">
+                <span className="font-mono font-bold">{r.code}</span>
+                <span className="text-sm flex-1">{describeCode(r)}{r.expires_at ? ` · use by ${new Date(r.expires_at).toLocaleDateString('en-IN')}` : ''}</span>
+                <CopyLink url={r.code} label="Copy" />
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       <section id="phone" className="card p-5 flex flex-col gap-3 scroll-mt-28">
         <h2 className="h-display text-2xl">Mobile number</h2>

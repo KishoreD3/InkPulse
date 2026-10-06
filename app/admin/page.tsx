@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/server';
 import { dropLabel, inr, num } from '@/lib/format';
 import { ActionButton, Stat } from '@/components/admin';
-import { runScheduler } from '@/app/actions/admin';
+import { reopenDesign, runScheduler } from '@/app/actions/admin';
 import type { Drop, Settings } from '@/lib/types';
 
 export const metadata = { title: 'Admin' };
@@ -27,6 +27,18 @@ export default async function AdminDashboard() {
     db.from('notifications').select('id', { count: 'exact', head: true }).not('dispatch_error', 'is', null).then((r) => r.count ?? 0),
     drop ? db.from('designs').select('name, vote_count, backer_count, slug').eq('drop_id', drop.id).eq('status', 'live').order('vote_count', { ascending: false }).then((r) => r.data ?? []) : [],
   ]);
+  // Most wanted: finished designs people asked to bring back.
+  const { data: wl } = await db.from('design_waitlist').select('design_id');
+  const wanted = new Map<string, number>();
+  ((wl ?? []) as { design_id: string }[]).forEach((w) => wanted.set(w.design_id, (wanted.get(w.design_id) ?? 0) + 1));
+  const wantedIds = Array.from(wanted.keys());
+  const { data: wantedDesigns } = wantedIds.length
+    ? await db.from('designs').select('id, name, slug, status').in('id', wantedIds)
+    : { data: [] };
+  const mostWanted = ((wantedDesigns ?? []) as { id: string; name: string; slug: string; status: string }[])
+    .map((d) => ({ ...d, n: wanted.get(d.id) ?? 0 })).sort((a, b) => b.n - a.n).slice(0, 8);
+  const { count: openReturns } = await db.from('return_requests').select('id', { count: 'exact', head: true }).eq('status', 'open');
+
   const backers = new Set((backed as { user_id: string }[]).map((b) => b.user_id)).size;
   const backedValue = (backed as { total: number }[]).reduce((t, o) => t + o.total, 0);
   const max = Math.max(1, ...(designs as { vote_count: number }[]).map((d) => d.vote_count));
@@ -52,6 +64,7 @@ export default async function AdminDashboard() {
         <Stat label="Awaiting review" value={<Link href="/admin/submissions" className="underline">{reviews}</Link>} tone={reviews ? 'warn' : undefined} />
         <Stat label="Open reports" value={<Link href="/admin/moderation" className="underline">{reports}</Link>} tone={reports ? 'warn' : undefined} />
         <Stat label="Delivery errors" value={notifErr} tone={notifErr ? 'warn' : undefined} />
+        <Stat label="Open returns" value={<Link href="/admin/returns" className="underline">{openReturns ?? 0}</Link>} tone={openReturns ? 'warn' : undefined} />
       </div>
 
       {designs.length > 0 && (
@@ -66,6 +79,20 @@ export default async function AdminDashboard() {
               </span>
               <span className="font-mono text-right">{num(d.vote_count)}</span>
               <span className="font-mono text-right text-muted">{d.backer_count} bk</span>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {mostWanted.length > 0 && (
+        <section className="card p-5 flex flex-col gap-2">
+          <h2 className="h-display text-2xl">Most wanted</h2>
+          <p className="text-sm text-body">Finished designs people asked to bring back. Reopening puts it on sale for {settings.reopen_days} days and notifies everyone on the list.</p>
+          {mostWanted.map((d) => (
+            <div key={d.id} className="flex items-center gap-3 border-b-2 border-dashed border-ink py-2">
+              <Link href={`/d/${d.slug}`} className="flex-1 font-semibold underline">{d.name}</Link>
+              <span className="font-mono text-sm">{num(d.n)} waiting</span>
+              <ActionButton run={reopenDesign.bind(null, d.id)} className="chip-on" confirm={`Put ${d.name} back on sale and notify ${d.n} people?`}>Bring it back</ActionButton>
             </div>
           ))}
         </section>

@@ -28,4 +28,6 @@ echo "→ supabase/seed.sql"
 $PSQL -f supabase/seed.sql >/dev/null
 echo "→ supabase/tests/smoke.sql"
 $PSQL -f supabase/tests/smoke.sql
+echo "→ supabase/tests/growth.sql"
+$PSQL -f supabase/tests/growth.sql
 echo "✓ database tests passed"

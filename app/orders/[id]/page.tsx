@@ -5,9 +5,10 @@ import { createClient } from '@/lib/supabase/server';
 import { getSettings } from '@/lib/data';
 import { ORDER_STATUS_LABEL, dateTime, inr } from '@/lib/format';
 import { Tee } from '@/components/Tee';
-import { ShareButton } from '@/components/ShareButton';
+import { ShareKit } from '@/components/ShareKit';
+import { ReturnForm, ReviewForm } from './AfterSales';
 import { PayToClaim } from './PayToClaim';
-import type { Order } from '@/lib/types';
+import type { Order, ReturnRequest, Review } from '@/lib/types';
 
 export const metadata = { title: 'Order' };
 export const dynamic = 'force-dynamic';
@@ -26,6 +27,19 @@ export default async function OrderPage({ params, searchParams }: { params: { id
   if (!data) notFound();
   const order = data as Order;
   const settings = await getSettings();
+  const delivered = order.status === 'delivered';
+  const supabase = createClient();
+  const [{ data: rr }, { data: rv }] = delivered
+    ? await Promise.all([
+        supabase.from('return_requests').select('*').eq('order_id', order.id).order('created_at', { ascending: false }),
+        supabase.from('reviews').select('*').in('order_item_id', (order.items ?? []).map((i) => i.id)),
+      ])
+    : [{ data: [] }, { data: [] }];
+  const requests = (rr ?? []) as ReturnRequest[];
+  const activeRequest = requests.find((r) => r.status === 'open' || r.status === 'approved');
+  const reviews = new Map(((rv ?? []) as Review[]).map((r) => [r.order_item_id, r]));
+  const deliveredAt = order.shipment?.delivered_at ?? order.shipment?.shipped_at ?? null;
+  const windowOpen = delivered && (!deliveredAt || Date.now() - new Date(deliveredAt).getTime() < settings.return_window_days * 86400_000);
   const steps = order.type === 'backing' ? STEPS_BACKING : STEPS_RETAIL;
   const reached = (steps as readonly string[]).indexOf(order.status);
   const first = order.items?.[0];
@@ -41,7 +55,7 @@ export default async function OrderPage({ params, searchParams }: { params: { id
             : 'It ships with the next print batch. We will send tracking when it leaves the printer.'}
             {searchParams.pending ? ' Your payment is still confirming; this page updates shortly.' : ''}</p>
           {order.type === 'backing' && first?.design && (
-            <div className="flex items-center gap-3"><ShareButton title={`I backed ${first.design.name} on INKPULSE. Help it reach the top ${settings.winners_per_drop}`} path={`/d/${first.design.slug}`} /><span className="text-sm font-bold">Share your pick</span></div>
+            <ShareKit slug={first.design.slug} name={first.design.name} kind="backed" live />
           )}
         </div>
       )}
@@ -81,6 +95,7 @@ export default async function OrderPage({ params, searchParams }: { params: { id
         {order.items?.map((i) => (
           <div key={i.id} className="flex justify-between gap-3"><span>{i.design?.name} · {i.colour} · {i.size} ×{i.qty}</span><span>{inr(i.unit_price * i.qty)}</span></div>
         ))}
+        {order.discount > 0 && <div className="flex justify-between"><span>CODE {order.discount_code ?? ''}</span><span>−{inr(order.discount)}</span></div>}
         <div className="flex justify-between"><span>SHIPPING</span><span>{order.shipping ? inr(order.shipping) : 'FREE'}</span></div>
         <div className="border-t-2 border-dashed border-ink my-1" />
         <div className="flex justify-between font-bold"><span>TOTAL</span><span>{inr(order.total)}</span></div>
@@ -88,6 +103,26 @@ export default async function OrderPage({ params, searchParams }: { params: { id
         <div className="flex justify-between text-muted"><span>PAYMENT</span><span>{order.payment_method?.toUpperCase() ?? '—'} · {order.payment_status.toUpperCase()}</span></div>
         <div className="flex justify-between text-muted"><span>PLACED</span><span>{dateTime(order.created_at)}</span></div>
       </section>
+
+      {delivered && (
+        <section className="flex flex-col gap-3" aria-label="After delivery">
+          {order.items?.map((i) => (
+            <ReviewForm key={i.id} orderId={order.id} itemId={i.id} name={i.design?.name ?? 'Your tee'}
+              existing={reviews.get(i.id) ? { rating: reviews.get(i.id)!.rating, fit: reviews.get(i.id)!.fit, body: reviews.get(i.id)!.body, photo_urls: reviews.get(i.id)!.photo_urls } : null} />
+          ))}
+          {activeRequest ? (
+            <p className="card-flat p-4 text-sm">
+              <strong>{activeRequest.kind === 'exchange' ? `Exchange to ${activeRequest.new_size}` : 'Return'}: {activeRequest.status === 'open' ? 'we’re reviewing it' : 'approved'}</strong>
+              {activeRequest.admin_note ? <><br />{activeRequest.admin_note}</> : null}
+            </p>
+          ) : windowOpen ? (
+            <ReturnForm orderId={order.id} sizes={settings.sizes} days={settings.return_window_days} />
+          ) : null}
+          {requests.filter((r) => r !== activeRequest).map((r) => (
+            <p key={r.id} className="text-sm text-body">Earlier {r.kind}: {r.status}{r.admin_note ? ` — ${r.admin_note}` : ''}</p>
+          ))}
+        </section>
+      )}
 
       <section className="card-flat p-4 text-sm">
         <p className="font-bold">Shipping to</p>

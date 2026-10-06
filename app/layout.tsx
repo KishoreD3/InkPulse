@@ -8,6 +8,8 @@ import { Toaster } from '@/components/Toaster';
 import { getSession } from '@/lib/auth';
 import { isConfigured, publicEnv } from '@/lib/env';
 import { SetupNotice } from '@/components/SetupNotice';
+import { ReferralClaim } from '@/components/ReferralClaim';
+import { cookies } from 'next/headers';
 
 export const metadata: Metadata = {
   metadataBase: new URL(publicEnv.siteUrl),
@@ -63,6 +65,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <TabBar />
         <Toaster />
         <PwaRegister />
+        {session && cookies().has('ink_ref') && <ReferralClaim />}
       </body>
     </html>
   );

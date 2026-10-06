@@ -5,7 +5,7 @@ import { toast } from './Toaster';
 import { reportContent } from '@/app/actions/social';
 
 export function ReportButton({ targetType, targetId, signedIn }: {
-  targetType: 'post' | 'comment' | 'design' | 'profile'; targetId: string; signedIn: boolean;
+  targetType: 'post' | 'comment' | 'design' | 'profile' | 'review'; targetId: string; signedIn: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState('');

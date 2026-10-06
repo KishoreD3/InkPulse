@@ -25,6 +25,13 @@ export async function middleware(request: NextRequest) {
   // Refreshes the session cookie; must run before any redirect decision.
   const { data: { user } } = await supabase.auth.getUser();
 
+  // Invite links (?ref=handle) and campaign links (?src=instagram) are remembered for a while.
+  const ref = request.nextUrl.searchParams.get('ref')?.toLowerCase();
+  const src = request.nextUrl.searchParams.get('src')?.toLowerCase();
+  const month = 60 * 60 * 24 * 30;
+  if (ref && /^[a-z0-9_]{3,24}$/.test(ref)) response.cookies.set('ink_ref', ref, { maxAge: month, sameSite: 'lax', path: '/' });
+  if (src && /^[a-z0-9_-]{1,32}$/.test(src)) response.cookies.set('ink_src', src, { maxAge: 60 * 60 * 24 * 7, sameSite: 'lax', path: '/' });
+
   const path = request.nextUrl.pathname;
   if (!user && PROTECTED.some((p) => path === p || path.startsWith(`${p}/`))) {
     const signin = request.nextUrl.clone();

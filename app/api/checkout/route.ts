@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { getSession } from '@/lib/auth';
 import { CheckoutError, checkoutSchema, startCheckout } from '@/lib/orders';
 import { publicEnv } from '@/lib/env';
@@ -12,7 +13,7 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ error: 'Check your size, colour and address.' }, { status: 400 });
 
   try {
-    const result = await startCheckout(session.user.id, parsed.data);
+    const result = await startCheckout(session.user.id, parsed.data, cookies().get('ink_src')?.value ?? null);
     return NextResponse.json({ ...result, keyId: publicEnv.razorpayKeyId, email: session.user.email ?? undefined });
   } catch (e) {
     if (e instanceof CheckoutError) return NextResponse.json({ error: e.message }, { status: 409 });

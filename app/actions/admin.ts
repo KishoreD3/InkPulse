@@ -272,6 +272,7 @@ export async function resolveReport(reportId: string, action: 'hide' | 'dismiss'
   if (action === 'hide') {
     if (r.target_type === 'post') await db.from('posts').update({ hidden: true }).eq('id', r.target_id);
     if (r.target_type === 'comment') await db.from('comments').update({ hidden: true }).eq('id', r.target_id);
+    if (r.target_type === 'review') await db.from('reviews').update({ hidden: true }).eq('id', r.target_id);
     if (r.target_type === 'design') await db.from('designs').update({ status: 'withdrawn', review_note: 'Removed after a report.' }).eq('id', r.target_id).neq('status', 'won');
   }
   await db.from('reports').update({ status: action === 'hide' ? 'actioned' : 'dismissed' })
@@ -303,6 +304,7 @@ const settingsSchema = z.object({
   categories: z.string().transform((s) => s.split(',').map((x) => x.trim()).filter(Boolean)),
   support_email: z.string().email(),
   require_phone_for_votes: z.enum(['true', 'false']).transform((v) => v === 'true'),
+  referral_reward: int, welcome_reward: int, return_window_days: int, reopen_days: int.min(1),
 });
 
 export async function saveSettings(_: unknown, form: FormData): Promise<Result> {
@@ -315,4 +317,82 @@ export async function saveSettings(_: unknown, form: FormData): Promise<Result> 
   await audit(session.user.id, 'settings.update', 'settings', parsed.data);
   revalidatePath('/', 'layout');
   return { ok: true, message: 'Settings saved.' };
+}
+
+// ─── Discount codes ──────────────────────────────────────────────────
+const codeSchema = z.object({
+  code: z.string().trim().toUpperCase().regex(/^[A-Z0-9-]{3,24}$/, 'Code: 3–24 letters, numbers or -'),
+  kind: z.enum(['percent', 'flat']),
+  value: z.coerce.number().int().min(1),
+  applies_to: z.enum(['all', 'backing', 'retail']),
+  min_subtotal: z.coerce.number().int().min(0).default(0),
+  max_uses: z.coerce.number().int().min(0).default(0),
+  per_user_limit: z.coerce.number().int().min(1).default(1),
+  expires_at: z.string().optional(),
+  note: z.string().trim().max(120).optional(),
+});
+
+export async function createCode(_: unknown, form: FormData): Promise<Result> {
+  const { session, db } = await guard();
+  const parsed = codeSchema.safeParse(Object.fromEntries(form));
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+  const c = parsed.data;
+  if (c.kind === 'percent' && c.value > 90) return { ok: false, error: 'Percent codes can be at most 90%.' };
+  const { error } = await db.from('discount_codes').insert({
+    code: c.code, kind: c.kind, value: c.value, applies_to: c.applies_to, min_subtotal: c.min_subtotal,
+    max_uses: c.max_uses || null, per_user_limit: c.per_user_limit, note: c.note || null,
+    expires_at: c.expires_at ? new Date(`${c.expires_at}T23:59:59+05:30`).toISOString() : null,
+  });
+  if (error) return { ok: false, error: error.message.includes('duplicate') ? 'That code already exists.' : error.message };
+  await audit(session.user.id, 'code.create', c.code, c);
+  revalidatePath('/admin/codes');
+  return { ok: true };
+}
+
+export async function setCodeActive(code: string, active: boolean): Promise<Result> {
+  const { session, db } = await guard();
+  await db.from('discount_codes').update({ active }).eq('code', code);
+  await audit(session.user.id, active ? 'code.enable' : 'code.disable', code);
+  revalidatePath('/admin/codes');
+  return { ok: true };
+}
+
+// ─── Back by demand ──────────────────────────────────────────────────
+export async function reopenDesign(designId: string): Promise<Result> {
+  const { session, db } = await guard();
+  const { data, error } = await db.rpc('reopen_design', { p_design: designId });
+  if (error) return { ok: false, error: error.message.includes('not_reopenable') ? 'Only finished designs can be reopened.' : error.message };
+  await audit(session.user.id, 'design.reopen', designId, { notified: data });
+  revalidatePath('/admin');
+  return { ok: true, message: `Back on sale. ${data} people notified.` };
+}
+
+// ─── Returns & exchanges ─────────────────────────────────────────────
+const returnSchema = z.object({
+  id: z.string().uuid(),
+  status: z.enum(['approved', 'rejected', 'completed']),
+  admin_note: z.string().trim().max(300).optional(),
+});
+
+export async function resolveReturn(_: unknown, form: FormData): Promise<Result> {
+  const { session, db } = await guard();
+  const parsed = returnSchema.safeParse(Object.fromEntries(form));
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+  const { id, status, admin_note } = parsed.data;
+  if (status === 'rejected' && !admin_note) return { ok: false, error: 'Tell the member why.' };
+  const { error } = await db.from('return_requests').update({
+    status, admin_note: admin_note || null, resolved_at: status === 'approved' ? null : new Date().toISOString(),
+  }).eq('id', id);
+  if (error) return { ok: false, error: error.message };
+  await audit(session.user.id, `return.${status}`, id, { admin_note });
+  revalidatePath('/admin/returns');
+  return { ok: true };
+}
+
+export async function hideReview(reviewId: string): Promise<Result> {
+  const { session, db } = await guard();
+  await db.from('reviews').update({ hidden: true }).eq('id', reviewId);
+  await audit(session.user.id, 'review.hide', reviewId);
+  revalidatePath('/admin/moderation');
+  return { ok: true };
 }

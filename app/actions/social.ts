@@ -54,7 +54,7 @@ export async function addComment(input: z.input<typeof commentSchema>): Promise<
   return { ok: true };
 }
 
-export async function reportContent(targetType: 'post' | 'comment' | 'design' | 'profile', targetId: string, reason: string): Promise<Result> {
+export async function reportContent(targetType: 'post' | 'comment' | 'design' | 'profile' | 'review', targetId: string, reason: string): Promise<Result> {
   const session = await getSession();
   if (!session) return { ok: false, error: 'Sign in to report.' };
   if (!reason || reason.length < 3) return { ok: false, error: 'Pick a reason.' };
