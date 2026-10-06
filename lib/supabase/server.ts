@@ -28,7 +28,9 @@ export function createClient(): SupabaseClient {
  * checked who the caller is (route handlers, server actions, cron jobs).
  */
 export function createAdminClient(): SupabaseClient {
-  return createPlainClient(publicEnv.supabaseUrl, serverEnv('SUPABASE_SERVICE_ROLE_KEY'), {
+  // Older projects call it the service-role key; newer ones the secret key. Either bypasses RLS.
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || serverEnv('SUPABASE_SECRET_KEY');
+  return createPlainClient(publicEnv.supabaseUrl, key, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }

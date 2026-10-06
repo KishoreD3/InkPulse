@@ -2,7 +2,7 @@
   "name": "inkpulse",
   "version": "1.0.0",
   "private": true,
-  "description": "INKPULSE \u2014 community-voted weekly t-shirt drops. Web + installable mobile app (PWA).",
+  "description": "INKPULSE — community-voted weekly t-shirt drops. Web + installable mobile app (PWA).",
   "scripts": {
     "dev": "next dev",
     "build": "node scripts/migrate.mjs && next build",
@@ -14,8 +14,8 @@
     "db:migrate": "node scripts/migrate.mjs"
   },
   "dependencies": {
-    "@supabase/ssr": "0.5.2",
-    "@supabase/supabase-js": "2.45.4",
+    "@supabase/ssr": "^0.7.0",
+    "@supabase/supabase-js": "^2.117.2",
     "next": "14.2.35",
     "pg": "^8.13.0",
     "react": "18.3.1",

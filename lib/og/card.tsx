@@ -49,7 +49,7 @@ export interface CardDesign {
 
 export async function loadCardDesign(slug: string): Promise<CardDesign | null> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if (!url || !key) return null;
   const db = createClient(url, key, { auth: { persistSession: false } });
   const { data } = await db.from('designs')
