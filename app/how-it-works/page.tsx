@@ -34,7 +34,7 @@ export default async function HowItWorks() {
       <div className="container-page py-10 max-w-3xl flex flex-col gap-3">
         {faqs.map(([q, a]) => (
           <details key={q} className="card p-4 group">
-            <summary className="font-display text-xl uppercase cursor-pointer list-none flex justify-between">{q}<span className="group-open:rotate-45 transition-transform">+</span></summary>
+            <summary className="font-display text-xl cursor-pointer list-none flex justify-between">{q}<span className="group-open:rotate-45 transition-transform">+</span></summary>
             <p className="pt-2 text-body leading-relaxed">{a}</p>
           </details>
         ))}

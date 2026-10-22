@@ -6,7 +6,8 @@ import { getSession } from '@/lib/auth';
 import { loadPosts } from '@/lib/feed';
 import { Avatar, PostCard } from '@/components/PostCard';
 import { FollowButton } from '@/components/FollowButton';
-import { Tee, colourway, tileFor } from '@/components/Tee';
+import { Tee } from '@/components/Tee';
+import { colourway, tileFor } from '@/lib/colourway';
 import { DESIGN_STATUS_LABEL } from '@/lib/format';
 import type { DesignWithArtist, Profile } from '@/lib/types';
 
@@ -56,7 +57,7 @@ export default async function ArtistPage({ params }: { params: { handle: string 
                 <span className={`h-[200px] border-2 border-ink rounded-xl grid place-items-center ${t.dark ? 'halftone-dark' : 'halftone-light'}`} style={{ backgroundColor: t.bg }}>
                   <Tee shirt={c.hex} art={c.art} size={180} />
                 </span>
-                <span className="font-display text-xl uppercase">{d.name}</span>
+                <span className="font-display text-xl">{d.name}</span>
                 <span className="sticker bg-acid self-start">{DESIGN_STATUS_LABEL[d.status]}</span>
               </Link>
             );

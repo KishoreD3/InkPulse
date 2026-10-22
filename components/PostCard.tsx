@@ -3,7 +3,8 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { getBrowserClient } from '@/lib/supabase/client';
 import { timeAgo } from '@/lib/format';
-import { Tee, colourway } from './Tee';
+import { Tee } from './Tee';
+import { colourway } from '@/lib/colourway';
 import { Bolt, Comment, Heart, Repost } from './Icons';
 import { ReportButton } from './ReportButton';
 import { toast } from './Toaster';
@@ -35,9 +36,9 @@ export function PostCard({ post, liked: likedInit, reposted: repostedInit, userI
 
   if (post.kind === 'system') {
     return (
-      <div className="flex items-center gap-3 px-4 py-3 border-2 border-ink rounded-[14px] bg-acid -rotate-[0.6deg]">
+      <div className="flex items-center gap-3 px-4 py-3 border-2 border-ink rounded-[14px] bg-acid ">
         <Bolt size={24} filled />
-        <p className="flex-1 font-display text-[17px] leading-tight tracking-wide uppercase">{post.body}</p>
+        <p className="flex-1 font-display text-[17px] leading-tight tracking-wide">{post.body}</p>
         <span className="font-mono text-[11px]">{timeAgo(post.created_at)}</span>
       </div>
     );
@@ -61,7 +62,7 @@ export function PostCard({ post, liked: likedInit, reposted: repostedInit, userI
         <div className="flex-1 min-w-0">
           <Link href={`/a/${handle}`} className="font-bold text-[15px] flex items-center gap-2">
             @{handle}
-            {post.kind === 'artist' && <span className="-rotate-3 sticker bg-pink !text-[10px] !px-1.5 !py-0.5">Artist</span>}
+            {post.kind === 'artist' && <span className="sticker bg-pink !text-[10px] !px-1.5 !py-0.5">Artist</span>}
           </Link>
           <p className="font-mono text-[11px] text-muted">{timeAgo(post.created_at)}</p>
         </div>
@@ -78,11 +79,11 @@ export function PostCard({ post, liked: likedInit, reposted: repostedInit, userI
       )}
       {post.design && (
         <Link href={`/d/${post.design.slug}`} className="flex items-center gap-3 p-2 border-2 border-ink rounded-xl bg-paper">
-          <span className="w-16 h-16 border-2 border-ink rounded-[10px] bg-ink halftone-dark grid place-items-center shrink-0">
+          <span className="w-16 h-16 border-2 border-ink rounded-[10px] bg-soft grid place-items-center shrink-0">
             <Tee {...(() => { const c = colourway(post.design!); return { shirt: c.hex, art: c.art }; })()} size={60} />
           </span>
           <span className="flex-1 min-w-0">
-            <span className="block font-display text-lg uppercase truncate">{post.design.name}</span>
+            <span className="block font-display text-lg truncate">{post.design.name}</span>
             <span className="block font-mono text-[11px] text-body">{post.design.vote_count.toLocaleString('en-IN')} VOTES</span>
           </span>
           {post.design.status === 'live' && <span className="bg-pink border-2 border-ink rounded-[10px] px-2.5 py-2 font-display text-[15px]">BACK</span>}

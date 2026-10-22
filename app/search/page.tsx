@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { DESIGN_SELECT } from '@/lib/data';
-import { Tee, colourway, tileFor } from '@/components/Tee';
+import { Tee } from '@/components/Tee';
+import { colourway, tileFor } from '@/lib/colourway';
 import { Avatar } from '@/components/PostCard';
 import type { DesignWithArtist } from '@/lib/types';
 
@@ -40,7 +41,7 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
               <span className={`h-[200px] border-2 border-ink rounded-xl grid place-items-center ${t.dark ? 'halftone-dark' : 'halftone-light'}`} style={{ backgroundColor: t.bg }}>
                 <Tee shirt={c.hex} art={c.art} size={180} />
               </span>
-              <span className="font-display text-xl uppercase">{d.name}</span>
+              <span className="font-display text-xl">{d.name}</span>
               <span className="font-mono text-[11px] text-muted">@{d.artist?.handle} · {d.category}</span>
             </Link>
           );

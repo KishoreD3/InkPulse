@@ -183,7 +183,7 @@ export function CheckoutClient({ mode, addresses, backing, settings, initialCode
         <Row k="SHIPPING" v={shipping ? inr(shipping) : 'FREE'} />
         <div className="border-t-2 border-dashed border-ink my-1" />
         <Row k="TOTAL (GST INCL.)" v={inr(total)} bold />
-        <p className="bg-cobalt text-white border-2 border-ink rounded-lg px-3 py-2.5 font-bold text-xs mt-1">
+        <p className="bg-yellow-soft text-ink rounded-lg px-3 py-2.5 font-bold text-xs mt-1">
           {backing
             ? `${inr(artistCut(backing.price, settings.gst_pct, settings.artist_pct) * qty)} OF THIS GOES TO THE ARTIST WHO DREW IT`
             : `${settings.artist_pct}% OF EVERY TEE GOES TO THE ARTIST WHO DREW IT`}
@@ -211,11 +211,11 @@ function Item({ name, colours, art, colour, size, qty, onQty }: {
   const c = colours.find((x) => x.name === colour) ?? colours[0];
   return (
     <div className="flex gap-3 items-center">
-      <span className="w-[76px] h-[76px] border-2 border-ink rounded-xl bg-ink halftone-dark grid place-items-center shrink-0">
+      <span className="w-[76px] h-[76px] border-2 border-ink rounded-xl bg-soft grid place-items-center shrink-0">
         <Tee shirt={c?.hex ?? '#fff'} art={c?.art || art} size={72} />
       </span>
       <div className="flex-1 min-w-0">
-        <p className="font-display text-xl uppercase truncate">{name}</p>
+        <p className="font-display text-xl truncate">{name}</p>
         <p className="font-mono text-[11px] text-body">{colour.toUpperCase()} · {size} · 240 GSM</p>
       </div>
       {onQty ? (

@@ -3,7 +3,8 @@ import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getDropDesigns } from '@/lib/data';
 import { dateShort, dropLabel } from '@/lib/format';
-import { Tee, colourway, tileFor } from '@/components/Tee';
+import { Tee } from '@/components/Tee';
+import { colourway, tileFor } from '@/lib/colourway';
 import type { Drop } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -27,7 +28,7 @@ export default async function DropResults({ params }: { params: { number: string
                   <Tee shirt={c.hex} art={c.art} size={180} />
                   <span className="absolute top-2 left-2 w-11 h-11 rounded-full border-2 border-ink bg-acid grid place-items-center font-display">#{d.final_rank ?? i + 1}</span>
                 </span>
-                <span className="font-display text-xl uppercase">{d.name}</span>
+                <span className="font-display text-xl">{d.name}</span>
                 <span className="font-mono text-[11px]">{d.vote_count.toLocaleString('en-IN')} VOTES · {d.status === 'won' ? 'PRINTED' : d.status === 'lost' ? 'DID NOT PRINT' : 'LIVE'}</span>
               </Link>
             </li>

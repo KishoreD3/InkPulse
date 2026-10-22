@@ -101,7 +101,7 @@ export default async function TopicsPage() {
             {pastDrops.map((d) => (
               <Link key={d.id} href={`/drops/${d.number}`} className="card p-4 flex flex-col gap-1 shadow-hard-sm">
                 <span className="label-mono text-muted">{dropLabel(d.number)}</span>
-                <span className="font-display text-2xl uppercase leading-none">{topicTitle(pastByDrop.get(d.id))}</span>
+                <span className="font-display text-2xl leading-none">{topicTitle(pastByDrop.get(d.id))}</span>
               </Link>
             ))}
           </div>
