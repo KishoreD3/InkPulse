@@ -8,7 +8,7 @@ function parts(ms: number) {
 const pad = (n: number) => String(n).padStart(2, '0');
 
 /** Days:hours:minutes until `to`. Renders a stable value on the server, ticks on the client. */
-export function Countdown({ to, className, unitsClassName }: { to: string; className?: string; unitsClassName?: string }) {
+export function Countdown({ to, className, unitsClassName, inline = false }: { to: string; className?: string; unitsClassName?: string; inline?: boolean }) {
   const target = new Date(to).getTime();
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => {
@@ -18,6 +18,8 @@ export function Countdown({ to, className, unitsClassName }: { to: string; class
   }, []);
   const p = parts(target - (now ?? target - 1));
   const done = now !== null && target <= now;
+  const text = now === null ? '--:--:--' : done ? '00:00:00' : p.d > 0 ? `${p.d}d ${pad(p.h)}:${pad(p.m)}:${pad(p.s)}` : `${pad(p.h)}:${pad(p.m)}:${pad(p.s)}`;
+  if (inline) return <span className={`tabular-nums ${className ?? ''}`} suppressHydrationWarning>{text}</span>;
   return (
     <div>
       <div className={className} aria-live="off" suppressHydrationWarning>

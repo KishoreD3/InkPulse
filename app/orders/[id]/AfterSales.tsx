@@ -11,14 +11,14 @@ export function ReviewForm({ orderId, itemId, name, existing }: {
   const [rating, setRating] = useState(existing?.rating ?? 0);
   return (
     <ActionForm action={postReview} className="card p-4 flex flex-col gap-3" success="Thanks! Your review is live.">
-      <p className="font-display text-xl uppercase">{existing ? 'Your review' : 'Rate'} · {name}</p>
+      <p className="font-display text-xl">{existing ? 'Your review' : 'Rate'} · {name}</p>
       <input type="hidden" name="orderId" value={orderId} />
       <input type="hidden" name="itemId" value={itemId} />
       <input type="hidden" name="rating" value={rating || ''} />
       <div className="flex gap-1" role="radiogroup" aria-label="Rating">
         {[1, 2, 3, 4, 5].map((n) => (
           <button key={n} type="button" role="radio" aria-checked={rating === n} aria-label={`${n} star${n > 1 ? 's' : ''}`}
-            onClick={() => setRating(n)} className={`text-3xl leading-none ${n <= rating ? 'text-pink' : 'text-mist'}`}>★</button>
+            onClick={() => setRating(n)} className={`text-3xl leading-none ${n <= rating ? 'text-[#E0A100]' : 'text-mist'}`}>★</button>
         ))}
       </div>
       <fieldset className="flex flex-wrap gap-2">

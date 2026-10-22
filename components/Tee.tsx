@@ -98,24 +98,3 @@ export function Tee({
     </svg>
   );
 }
-
-/** Pick the shirt colour + artwork for a colourway (falls back to the first colour). */
-export function colourway(design: { colours: { name: string; hex: string; art?: string }[]; art_front_url: string }, name?: string) {
-  const c = design.colours.find((x) => x.name === name) ?? design.colours[0] ?? { name: 'Default', hex: '#FFFFFF' };
-  return { name: c.name, hex: c.hex, art: c.art || design.art_front_url };
-}
-
-/** Tile background colours rotate per design so the board feels like a print wall. */
-const TILES = [
-  { bg: '#FF3EA5', dark: false },
-  { bg: '#E4FF3B', dark: false },
-  { bg: '#111111', dark: true },
-  { bg: '#BFEBD6', dark: false },
-  { bg: '#2F4BFF', dark: true },
-  { bg: '#FFFFFF', dark: false },
-];
-export function tileFor(seed: string) {
-  let h = 0;
-  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-  return TILES[h % TILES.length];
-}

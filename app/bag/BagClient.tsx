@@ -40,9 +40,9 @@ export function BagClient({ price }: { price: number }) {
               <Tee shirt={c?.hex ?? '#fff'} art={c?.art || d?.art_front_url} size={72} />
             </span>
             <div className="flex-1 min-w-0">
-              <Link href={`/d/${l.slug}`} className="font-display text-xl uppercase">{l.name}</Link>
+              <Link href={`/d/${l.slug}`} className="font-display text-xl">{l.name}</Link>
               <p className="font-mono text-[11px] text-body">{l.colour.toUpperCase()} · {l.size} · {inr(price)}</p>
-              {d && d.status !== 'won' && <p className="text-xs font-bold text-pink">No longer on sale — remove it to continue.</p>}
+              {d && d.status !== 'won' && <p className="text-xs font-bold text-red">No longer on sale — remove it to continue.</p>}
             </div>
             <div className="flex items-center border-2 border-ink rounded-xl">
               <button aria-label="Decrease" className="w-9 h-10 font-display text-xl" onClick={() => update(lines.map((x, j) => (j === i ? { ...x, qty: Math.max(1, x.qty - 1) } : x)))}>−</button>

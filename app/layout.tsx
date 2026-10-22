@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import '@fontsource-variable/inter';
 import './globals.css';
 import { Header } from '@/components/Header';
 import { TabBar } from '@/components/TabBar';
@@ -6,6 +7,8 @@ import { Footer } from '@/components/Footer';
 import { PwaRegister } from '@/components/PwaRegister';
 import { Toaster } from '@/components/Toaster';
 import { getSession } from '@/lib/auth';
+import { getCurrentDrop, getSettings } from '@/lib/data';
+import { getTopic, topicTitle } from '@/lib/topics';
 import { isConfigured, publicEnv } from '@/lib/env';
 import { SetupNotice } from '@/components/SetupNotice';
 import { ReferralClaim } from '@/components/ReferralClaim';
@@ -22,7 +25,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#111111',
+  themeColor: '#FFD232',
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
@@ -38,19 +41,19 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       .select('id', { count: 'exact', head: true }).is('read_at', null);
     unread = count ?? 0;
   }
+  // Header strip: live topic + countdown, backer price and shop categories. Never block the page on it.
+  const shell = configured
+    ? await Promise.all([getSettings(), getCurrentDrop()])
+        .then(async ([settings, drop]) => ({
+          settings,
+          drop: drop ? { live: drop.status === 'live', topic: topicTitle(await getTopic(drop.id)), locksAt: drop.locks_at } : null,
+        }))
+        .catch(() => null)
+    : null;
 
   return (
     <html lang="en-IN">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Anton&family=Permanent+Marker&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap"
-        />
-      </head>
-      <body className="min-h-screen flex flex-col pb-[84px] md:pb-0">
+      <body className="min-h-screen flex flex-col pb-[72px] md:pb-0">
         <a href="#main" className="sr-only-focusable fixed top-2 left-2 z-50 btn-white">Skip to content</a>
         {!configured && <SetupNotice />}
         <Header
@@ -59,6 +62,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           isAdmin={Boolean(session?.profile.is_admin)}
           isArtist={Boolean(session?.profile.is_artist)}
           unread={unread}
+          drop={shell?.drop}
+          backerPrice={shell?.settings.backer_price}
+          categories={shell?.settings.categories}
         />
         <main id="main" className="flex-1">{children}</main>
         <Footer />

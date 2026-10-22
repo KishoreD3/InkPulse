@@ -71,7 +71,7 @@ export default async function DropsAdmin() {
                 <input type="hidden" name="dropId" value={d.id} />
                 <div className="grid gap-3 md:grid-cols-[1fr_2fr]">
                   <div>
-                    <label className="field-label" htmlFor={`tt-${d.id}`}>Topic {topics.get(d.id) ? '' : <span className="text-pink">(not set — it will run as “Open theme”)</span>}</label>
+                    <label className="field-label" htmlFor={`tt-${d.id}`}>Topic {topics.get(d.id) ? '' : <span className="text-red">(not set — it will run as “Open theme”)</span>}</label>
                     <input id={`tt-${d.id}`} name="title" className="input" defaultValue={topics.get(d.id)?.title ?? ''} maxLength={60} placeholder="Monsoon Mood" required />
                   </div>
                   <div>
@@ -86,7 +86,7 @@ export default async function DropsAdmin() {
                 <SubmitButton className="chip-on self-start">Save topic</SubmitButton>
               </ActionForm>
             )}
-            {d.status !== 'scheduled' && topics.get(d.id) && <p className="font-display text-xl uppercase">Topic: {topics.get(d.id)!.title}</p>}
+            {d.status !== 'scheduled' && topics.get(d.id) && <p className="font-display text-xl">Topic: {topics.get(d.id)!.title}</p>}
             <div className="flex flex-wrap gap-2 pt-1">
               {d.status === 'scheduled' && <StepButton id={d.id} step="open" label="Open now" />}
               {d.status === 'live' && <StepButton id={d.id} step="lock" label="Lock now & settle payments" danger />}

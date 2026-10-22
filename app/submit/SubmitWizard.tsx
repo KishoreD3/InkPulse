@@ -84,10 +84,10 @@ export function SubmitWizard({ userId, categories, existing, topics, initialTopi
         <section className="bg-acid border-2 border-ink rounded-[18px] shadow-hard-sm p-4 flex flex-col gap-2" aria-label="Topic">
           <p className="label-mono">Answering the topic</p>
           {topics.length > 1 ? (
-            <select className="input !bg-card font-display text-xl uppercase" value={topicId} onChange={(e) => setTopicId(e.target.value)} aria-label="Topic">
+            <select className="input !bg-card font-display text-xl" value={topicId} onChange={(e) => setTopicId(e.target.value)} aria-label="Topic">
               {topics.map((t) => <option key={t.dropId} value={t.dropId}>{t.title} · drop {String(t.number).padStart(3, '0')}</option>)}
             </select>
-          ) : <p className="font-display text-3xl uppercase leading-none">{topic?.title}</p>}
+          ) : <p className="font-display text-3xl leading-none">{topic?.title}</p>}
           {topic?.brief && <p className="text-sm">{topic.brief}</p>}
           <p className="text-sm font-bold">Submissions close {topic?.closesLabel} IST.</p>
         </section>

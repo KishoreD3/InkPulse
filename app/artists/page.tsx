@@ -44,7 +44,7 @@ export default async function ArtistsPage({ searchParams }: { searchParams: { q?
         <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(260px,1fr))]">
           {list.map((a, i) => (
             <Link key={a.id} href={`/a/${a.handle}`} className="card p-4 flex gap-3 items-start">
-              <span className="font-display text-[34px] leading-none text-transparent [-webkit-text-stroke:1.5px_#111] w-10">{i + 1}</span>
+              <span className="font-display text-[34px] leading-none text-muted w-10">{i + 1}</span>
               <Avatar handle={a.handle} url={a.avatar_url} size={48} />
               <span className="flex-1 min-w-0">
                 <span className="block font-bold">@{a.handle}</span>

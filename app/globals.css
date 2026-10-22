@@ -4,45 +4,57 @@
 
 @layer base {
   html { -webkit-tap-highlight-color: transparent; }
-  body { @apply bg-paper text-ink font-sans antialiased; }
-  :focus-visible { outline: 3px solid #2F4BFF; outline-offset: 2px; }
-  ::selection { background: #E4FF3B; color: #111111; }
+  body { @apply bg-paper text-ink font-sans antialiased; font-feature-settings: 'cv11', 'ss01'; }
+  :focus-visible { outline: 2px solid #11120F; outline-offset: 2px; }
+  ::selection { background: #FFD232; color: #11120F; }
 }
 
 @layer components {
-  /* Neo-brutal building blocks */
-  .card { @apply bg-card border-2 border-ink rounded-2xl shadow-hard; }
-  .card-flat { @apply bg-card border-2 border-ink rounded-2xl; }
+  /* Store building blocks (Figma Make INKPULSE theme) */
+  .card { @apply bg-card border border-line rounded-xl; }
+  .card-flat { @apply bg-soft border border-line rounded-xl; }
   .btn {
-    @apply inline-flex items-center justify-center gap-2 min-h-[44px] px-5 rounded-xl border-2 border-ink
-           font-display tracking-wide text-lg uppercase transition-transform active:translate-x-[2px] active:translate-y-[2px]
-           disabled:opacity-50 disabled:pointer-events-none;
+    @apply inline-flex items-center justify-center gap-2 min-h-[44px] px-5 rounded-lg border border-transparent
+           font-sans font-extrabold text-sm tracking-normal normal-case transition
+           active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
   }
-  .btn-pink { @apply btn bg-pink text-ink shadow-hard active:shadow-none; }
-  .btn-ink { @apply btn bg-ink text-acid; }
-  .btn-white { @apply btn bg-card text-ink shadow-hard active:shadow-none; }
-  .btn-sm { @apply min-h-[40px] px-3 text-base; }
-  .chip { @apply inline-flex items-center h-10 px-4 rounded-full border-2 border-ink font-bold text-sm whitespace-nowrap; }
-  .chip-on { @apply chip bg-ink text-acid; }
-  .chip-off { @apply chip bg-card text-ink; }
-  .label-mono { @apply font-mono font-bold text-[11px] tracking-widest uppercase; }
-  .h-display { @apply font-display uppercase leading-[0.95] tracking-wide; }
-  .highlight { background: linear-gradient(transparent 58%, #E4FF3B 58%); @apply px-1; }
-  .misprint { text-shadow: 3px 3px 0 #FF3EA5; }
-  .misprint-blue { text-shadow: 3px 3px 0 #2F4BFF; }
-  .sticker { @apply inline-block border-2 border-ink rounded px-2 py-1 font-mono font-bold text-[11px] tracking-widest uppercase; }
-  .halftone-dark { background-image: radial-gradient(rgba(255,255,255,0.14) 1px, transparent 1.6px); background-size: 7px 7px; }
-  .halftone-light { background-image: radial-gradient(rgba(17,17,17,0.14) 1px, transparent 1.6px); background-size: 7px 7px; }
-  .stripes { background: repeating-linear-gradient(-45deg, #FF3EA5 0 7px, #FF6FBC 7px 14px); }
+  .btn-pink { @apply btn bg-yellow text-ink hover:brightness-95; }
+  .btn-ink { @apply btn bg-ink text-white hover:bg-black; }
+  .btn-white { @apply btn bg-white text-ink border-[#B9BAB4] hover:border-ink; }
+  .btn-red { @apply btn bg-red text-white hover:brightness-95; }
+  .btn-sm { @apply min-h-[36px] px-3 text-xs; }
+  .chip { @apply inline-flex items-center h-9 px-4 rounded-full border border-[#D6D6D0] font-semibold text-[13px] whitespace-nowrap transition; }
+  .chip-on { @apply chip bg-ink text-white border-ink; }
+  .chip-off { @apply chip bg-white text-ink hover:border-ink; }
+  .label-mono { @apply font-sans font-extrabold text-[10px] tracking-[0.12em] uppercase; }
+  .h-display { @apply font-sans font-black leading-[0.95] tracking-[-0.035em]; }
+  .highlight { background: linear-gradient(transparent 62%, #FFD232 62%); @apply px-0.5; }
+  .misprint, .misprint-blue { text-shadow: none; }
+  .sticker { @apply inline-flex items-center gap-1 rounded px-2 py-1 font-sans font-extrabold text-[10px] tracking-[0.06em] uppercase bg-yellow text-ink; }
+  .halftone-dark, .halftone-light { background-image: none; }
+  .stripes { background: #11120F; }
+  .live-dot { @apply inline-block w-[7px] h-[7px] rounded-full bg-red animate-live; }
+  .badge { @apply absolute left-2 top-2 rounded px-2 py-1 text-[9px] font-black tracking-[0.04em] uppercase bg-yellow text-ink; }
+  .badge-red { @apply badge bg-red text-white; }
+  .price-off { @apply text-[11px] font-extrabold text-green; }
+  .eyebrow { @apply text-[10px] font-black tracking-[0.12em] uppercase text-muted; }
   .input {
-    @apply w-full min-h-[44px] px-4 rounded-xl border-2 border-ink bg-card text-ink placeholder:text-muted
-           focus:outline-none focus:ring-4 focus:ring-cobalt/30;
+    @apply w-full min-h-[44px] px-4 rounded-lg border border-[#D8D8D2] bg-soft text-ink placeholder:text-muted
+           focus:outline-none focus:border-ink focus:bg-white;
   }
-  .field-label { @apply block font-display uppercase tracking-wide text-lg mb-1; }
-  .container-page { @apply mx-auto w-full max-w-[1280px] px-4 sm:px-8; }
+  .field-label { @apply block font-sans font-bold text-sm mb-1.5; }
+  .container-page { @apply mx-auto w-full max-w-[1320px] px-4 sm:px-6; }
   .sr-only-focusable:not(:focus) { @apply sr-only; }
+  .no-scrollbar { scrollbar-width: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+}
+
+/* `font-display` used to be Anton (narrow, all-caps). Inter needs real weight to carry headings. */
+@layer utilities {
+  .font-display { font-weight: 800; letter-spacing: -0.01em; }
+  .font-mono { font-weight: 700; letter-spacing: 0.02em; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-tick, .animate-pop { animation: none !important; }
+  .animate-tick, .animate-pop, .animate-live { animation: none !important; }
 }

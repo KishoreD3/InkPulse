@@ -33,7 +33,7 @@ export default async function OrdersPage() {
       {orders.map((o) => (
         <Link key={o.id} href={`/orders/${o.id}`} className="card p-4 flex items-center gap-4">
           <div className="flex-1 min-w-0">
-            <p className="font-display text-xl uppercase truncate">{o.items?.map((i) => i.design?.name).join(', ')}</p>
+            <p className="font-display text-xl truncate">{o.items?.map((i) => i.design?.name).join(', ')}</p>
             <p className="font-mono text-[11px] text-muted">#{o.number} · {dateShort(o.created_at)} · {o.type === 'backing' ? 'BACKED' : 'RETAIL'}</p>
           </div>
           <div className="text-right">

@@ -24,7 +24,7 @@ export default async function PulsePage({ searchParams }: { searchParams: { tab?
     <div className="container-page py-6 max-w-2xl flex flex-col gap-4">
       <header className="flex items-center justify-between">
         <h1 className="h-display text-[40px] misprint">The Pulse</h1>
-        {drop && <span className="rotate-[4deg] sticker bg-acid">{dropLabel(drop.number)}</span>}
+        {drop && <span className="sticker bg-acid">{dropLabel(drop.number)}</span>}
       </header>
       {session ? <Composer handle={session.profile.handle} /> : (
         <Link href="/signin?next=/pulse" className="card-flat p-4 font-semibold">Sign in to hype a design or tag an artist →</Link>

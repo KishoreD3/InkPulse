@@ -49,7 +49,7 @@ export default async function Submissions() {
           </div>
           <div className="flex flex-col gap-3">
             <div>
-              <p className="font-display text-2xl uppercase">{d.name}</p>
+              <p className="font-display text-2xl">{d.name}</p>
               <p className="sticker bg-acid !text-[11px]">
                 Topic: {d.submitted_for ? `${topics.get(d.submitted_for)?.title ?? 'Open theme'}${dropOf(d.submitted_for) ? ` · ${dropLabel(dropOf(d.submitted_for)!.number)}` : ' · drop already started'}` : 'none'}
               </p>

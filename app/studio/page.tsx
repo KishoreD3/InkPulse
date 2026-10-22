@@ -5,7 +5,8 @@ import { getSettings } from '@/lib/data';
 import { DESIGN_STATUS_LABEL, dateShort, inr } from '@/lib/format';
 import { savePayoutDetails } from '@/app/actions/profile';
 import { ActionForm, Field, SubmitButton } from '@/components/forms';
-import { Tee, colourway } from '@/components/Tee';
+import { Tee } from '@/components/Tee';
+import { colourway } from '@/lib/colourway';
 import { ShareKit } from '@/components/ShareKit';
 import type { Design, DropTopic } from '@/lib/types';
 import { getOpenTopics, topicTitle } from '@/lib/topics';
@@ -61,7 +62,7 @@ export default async function StudioPage() {
           <section key={t.id} className="bg-acid border-2 border-ink rounded-[18px] shadow-hard-sm p-4 flex flex-wrap items-center gap-4">
             <div className="flex-1 min-w-[220px]">
               <p className="label-mono">Open topic · drop {String(t.number).padStart(3, '0')} · closes {dayTime(t.submissions_close_at)} IST</p>
-              <p className="font-display text-3xl uppercase leading-none">{topicTitle(t.topic)}</p>
+              <p className="font-display text-3xl leading-none">{topicTitle(t.topic)}</p>
               <p className="text-sm pt-1">You&apos;ve sent {mine} of {settings.max_designs_per_artist}.</p>
             </div>
             {mine < settings.max_designs_per_artist && <Link href={`/submit?topic=${t.id}`} className="btn-ink">Submit for this topic</Link>}
@@ -82,7 +83,7 @@ export default async function StudioPage() {
             <div key={d.id} className="card p-3 flex flex-wrap items-center gap-4">
               <span className="w-20 h-20 border-2 border-ink rounded-xl bg-paper halftone-light grid place-items-center"><Tee shirt={c.hex} art={c.art} size={76} /></span>
               <div className="flex-1 min-w-[180px]">
-                <p className="font-display text-xl uppercase">{d.name}</p>
+                <p className="font-display text-xl">{d.name}</p>
                 <p className="label-mono text-muted">{DESIGN_STATUS_LABEL[d.status]} · {dateShort(d.created_at)}{(d.submitted_for ?? d.drop_id) ? ` · ${topicTitle(topicOf.get((d.submitted_for ?? d.drop_id)!))}` : ''}</p>
                 {d.review_note && ['changes_requested', 'rejected'].includes(d.status) && <p className="text-sm pt-1"><strong>Note:</strong> {d.review_note}</p>}
               </div>

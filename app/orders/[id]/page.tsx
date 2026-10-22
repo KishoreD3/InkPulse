@@ -61,7 +61,7 @@ export default async function OrderPage({ params, searchParams }: { params: { id
       )}
 
       <header className="flex items-center gap-4">
-        <span className="w-24 h-24 border-2 border-ink rounded-2xl bg-ink halftone-dark grid place-items-center">
+        <span className="w-24 h-24 border-2 border-ink rounded-2xl bg-soft grid place-items-center">
           {cw && <Tee shirt={cw.hex} art={cw.art || first?.design?.art_front_url} size={90} />}
         </span>
         <div>
