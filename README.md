@@ -23,10 +23,10 @@ The shopper and artist screens are built from the Figma Make design **“The DND
 | Home | `/` | Hero rotating through the current leader, newest winner and the open topic; battle strip; bestsellers; featured artist |
 | Shop | `/shop` | Winners and live finalists from the database, URL filters (mood, fit, colour, size, price, collection), sort. “New” and “Bestsellers” fill themselves |
 | Battle | `/battle` | Live standings with Realtime vote counts, print zone, vote (one per design via `cast_vote()`) and back. Between battles: next date and a reminder |
-| Design | `/design/[id]` | Photos, colours and sizes per design, PIN code check (India Post + regional transit estimate), back or vote, add to bag |
+| Design | `/design/[id]` | Photos, colours and sizes per design, PIN code check (India Post + regional transit estimate), back or vote, add to bag, real buyer reviews with a fit verdict |
 | Bag / Checkout | `/bag`, `/checkout` | Server-checked codes (`SNOOZE10`, `NIGHTOWL15`, Backer Passes, invite rewards), club points, saved address. **Test payments**: orders are created and moved on as if paid; no money moves |
-| Orders | `/orders/[id]`, `/result/[id]` | One reference per checkout (each backing is its own order underneath), status from the database, backing result after Thursday, Backer Pass code |
-| Account | `/account?tab=…` | Backings, orders, votes, wishlist, points + invite link, address, notifications, mobile verification, sign out |
+| Orders | `/orders/[id]`, `/result/[id]` | One reference per checkout (each backing is its own order underneath), status from the database, backing result after Thursday, Backer Pass code. Once delivered: star rating + fit review, and a size exchange or return request with photos (7-day window) |
+| Account | `/account?tab=…` | Backings, orders, votes, wishlist, points + invite link, address, notifications with channel choices (push, email, WhatsApp) and push opt-in, mobile verification, sign out |
 | Sign in | `/signin` | Phone OTP (can vote straight away), Google, or email magic link. `/account`, `/checkout`, `/orders`, `/studio`, `/dashboard` need sign-in |
 | Artists | `/artists`, `/artists/[slug]` | Artists with real wins, followers, votes and tees sold; follow |
 | Topics | `/topics` | The four drops in flight (submissions, review, voting, printing), archive with winners, reminders |
@@ -51,7 +51,7 @@ Store code lives in `lib/dnd/` (catalogue loading, store state, weekly cycle mat
 ### What was verified here
 - `npm run typecheck`, `npm run lint` and `npm run build` pass.
 - `npm run db:test` runs every migration on Postgres 16 with four test suites, including `supabase/tests/store.sql`: catalogue functions, RLS on wishlist/reminders/points, votes, follower counts, reminder notifications, points earn and refund, Backer Pass on release, Monday 10 AM / Thursday 9 PM timing.
-- **Live mode end to end** against a local Supabase-style stack (Postgres + Supabase Auth + PostgREST + a file store) with the demo catalogue: phone OTP sign-in, vote saved and shown after reload, wishlist, follow, reminder, server-checked coupon, checkout creating one retail and two backing orders under one reference, points earned, account, studio upload into the review queue, artist dashboard, admin listing edit showing in the shop, Thursday lock settling one backing as won and one as released with a Backer Pass, notifications, sign out.
+- **Live mode end to end** against a local Supabase-style stack (Postgres + Supabase Auth + PostgREST + a file store) with the demo catalogue: phone OTP sign-in, vote saved and shown after reload, review and size exchange on a delivered order, review shown on the design page, notification choices saved, wishlist, follow, reminder, server-checked coupon, checkout creating one retail and two backing orders under one reference, points earned, account, studio upload into the review queue, artist dashboard, admin listing edit showing in the shop, Thursday lock settling one backing as won and one as released with a Backer Pass, notifications, sign out.
 - **Demo mode** driven in Chromium: bag, backing, vote, coupons, checkout, account, filters, search, night mode, studio upload, no horizontal scroll at 390 px.
 - Not tested here (needs your accounts): real SMS delivery, Google sign-in, Supabase Storage limits, Realtime vote updates, email/push/WhatsApp delivery.
 
@@ -65,7 +65,8 @@ Store code lives in `lib/dnd/` (catalogue loading, store state, weekly cycle mat
 | **Print partner** (Qikink, Printrove or a local printer) | Friday's print batch | `PRINT_PARTNER_MODE=csv` + `PRINT_OPS_EMAIL` works today; for an API, `webhook` + `PRINT_PARTNER_URL`/`_API_KEY`, mapped in `lib/print/index.ts` |
 | **Courier** (Shiprocket, Delhivery…) | Live serviceability and tracking. Today: India Post PIN lookup + regional estimate; AWB and tracking link are entered in Admin → Orders | Swap `checkPincode` in `lib/shipping.ts` for the courier API |
 | **Resend** domain + key, **VAPID** keys, **WhatsApp BSP** templates | Email, push and WhatsApp notifications | See *Notifications* below |
-| **Legal text** (terms, privacy, artist terms, returns) and the real **size chart** | Required before taking orders | `app/(store)/legal/`, `SIZE_CHART` in `lib/dnd/catalog.ts` |
+| **Business details**: registered name, address, GSTIN, support email, grievance officer | Shown on the legal and contact pages (Indian e-commerce rules) | `NEXT_PUBLIC_BUSINESS_*`, `NEXT_PUBLIC_SUPPORT_EMAIL`, `NEXT_PUBLIC_GRIEVANCE_OFFICER` |
+| **Legal review** of the drafted terms, privacy, artist terms and returns, and the real **size chart** | Required before taking orders | `app/(store)/legal/[slug]/page.tsx`, `SIZE_CHART` in `lib/dnd/catalog.ts` |
 | **Business numbers**: prices, artist %, GST, shipping fee, points rate | Already editable | Admin → Settings |
 | **Razorpay** (later) | Real payments | See *Razorpay* below, then `PAYMENTS_MODE=razorpay` |
 | **First artists and designs** | Something to vote on in week one | Artists submit at `/studio`; you approve in Admin → Submissions and add photos in Admin → Store listings |

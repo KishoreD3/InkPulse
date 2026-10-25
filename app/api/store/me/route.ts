@@ -2,16 +2,17 @@ import { NextResponse } from 'next/server';
 import { createAdminClient, createClient } from '@/lib/supabase/server';
 import { getStoreSession } from '@/lib/dnd/session';
 import { COLOURS, type ColourKey } from '@/lib/dnd/catalog';
-import type { DbStatus, Note, Order, OrderLine, Pass, PointsEntry, State, Submission } from '@/lib/dnd/store';
+import type { DbStatus, NotifyPrefs, Note, Order, OrderLine, Pass, PointsEntry, ReturnRequest, Review, State, Submission } from '@/lib/dnd/store';
 
 export const dynamic = 'force-dynamic';
 
-type ItemRow = { id: string; colour: string; size: string; qty: number; unit_price: number; design: { slug: string; name: string; status: string; photo_urls: string[]; mockup_url: string | null; art_front_url: string } | null };
+type ItemRow = { id: string; colour: string; size: string; qty: number; unit_price: number; review: Review | Review[] | null; design: { slug: string; name: string; status: string; photo_urls: string[]; mockup_url: string | null; art_front_url: string } | null };
 type OrderRow = {
   id: string; number: number; type: 'backing' | 'retail'; status: DbStatus; created_at: string; group_ref: string | null; subtotal: number; discount: number;
   total: number; discount_code: string | null; gift_wrap: boolean; points_redeemed: number; payment_method: string | null; contact_email: string | null;
   ship_to: Record<string, string | null>; drop: { number: number; locks_at: string } | null; items: ItemRow[];
-  shipment: { carrier: string | null; awb: string | null; tracking_url: string | null } | null;
+  shipment: { carrier: string | null; awb: string | null; tracking_url: string | null; delivered_at: string | null } | null;
+  returns: { kind: ReturnRequest['kind']; status: ReturnRequest['status']; new_size: string | null; created_at: string }[];
 };
 
 const colourKey = (name: string): ColourKey => COLOURS.find((c) => c.name === name)?.key ?? 'black';
@@ -35,10 +36,10 @@ export async function GET() {
     db.from('topic_reminders').select('drop_id, drop:drops(status)').eq('user_id', uid),
     db.from('orders').select(`id, number, type, status, created_at, group_ref, subtotal, discount, total, discount_code, gift_wrap, points_redeemed,
       payment_method, contact_email, ship_to, drop:drops(number, locks_at),
-      items:order_items(id, colour, size, qty, unit_price, design:designs(slug, name, status, photo_urls, mockup_url, art_front_url)),
-      shipment:shipments(carrier, awb, tracking_url)`).eq('user_id', uid).order('created_at', { ascending: false }).limit(100),
+      items:order_items(id, colour, size, qty, unit_price, review:reviews(rating, fit, body), design:designs(slug, name, status, photo_urls, mockup_url, art_front_url)),
+      shipment:shipments(carrier, awb, tracking_url, delivered_at), returns:return_requests(kind, status, new_size, created_at)`).eq('user_id', uid).order('created_at', { ascending: false }).limit(100),
     db.from('points_ledger').select('delta, note, created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(200),
-    db.from('profiles').select('name, bio').eq('id', uid).single(),
+    db.from('profiles').select('name, bio, notify').eq('id', uid).single(),
     db.from('profile_private').select('email, phone, payout_upi').eq('id', uid).maybeSingle(),
     db.from('addresses').select('name, phone, line1, line2, city, state, pin').eq('user_id', uid).order('is_default', { ascending: false }).limit(1).maybeSingle(),
     db.from('designs').select('id, name, story, mood, tags, colours, art_front_url, status, created_at, submitted:drops!designs_submitted_for_fkey(number)')
@@ -67,6 +68,7 @@ export async function GET() {
       name: i.design?.name ?? 'Design', image: i.design?.mockup_url ?? i.design?.photo_urls?.[0] ?? i.design?.art_front_url ?? '', unit: i.unit_price,
       drop: r.drop?.number, closesAt: r.drop ? new Date(r.drop.locks_at).getTime() : undefined, status: r.status,
       outcome: i.design?.status === 'won' && r.type === 'backing' ? 'won' as const : i.design?.status === 'lost' && r.type === 'backing' ? 'lost' as const : undefined,
+      orderUuid: r.id, review: (Array.isArray(i.review) ? i.review[0] : i.review) ?? null,
     })));
     const ship = first.ship_to;
     const shipment = rows.map((r) => r.shipment).find((s) => s?.awb);
@@ -81,6 +83,8 @@ export async function GET() {
       address: { name: ship.name ?? '', line1: ship.line1 ?? '', line2: ship.line2 ?? '', city: ship.city ?? '', state: ship.state ?? '', pin: ship.pin ?? '' },
       points: Math.floor(payNow / 10),
       tracking: shipment ? { carrier: shipment.carrier, awb: shipment.awb, url: shipment.tracking_url } : null,
+      deliveredAt: (() => { const d = rows.map((r) => r.shipment?.delivered_at).find(Boolean); return d ? new Date(d).getTime() : null; })(),
+      returns: rows.flatMap((r) => (r.returns ?? []).map((x) => ({ kind: x.kind, status: x.status, newSize: x.new_size, at: new Date(x.created_at).getTime() }))),
     };
   });
 
@@ -118,6 +122,7 @@ export async function GET() {
     submissions,
     payoutUpi: p?.payout_upi ?? '',
     artistBio: profile.data?.bio ?? '',
+    notify: ((profile.data as { notify?: NotifyPrefs } | null)?.notify) ?? { push: true, email: true, whatsapp: true },
     passes: ((passes.data ?? []) as { code: string; value: number; expires_at: string; redemptions: unknown[] }[])
       .filter((x) => !x.redemptions?.length)
       .map((x): Pass => ({ code: x.code, value: x.value, expiresAt: new Date(x.expires_at).getTime() })),

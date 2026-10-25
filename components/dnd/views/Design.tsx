@@ -2,9 +2,10 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { COLOURS, SIZES, SIZE_CHART, inr, num, off } from '@/lib/dnd/catalog';
+import { COLOURS, SIZES, SIZE_CHART, inr, num, off, type Product } from '@/lib/dnd/catalog';
 import { useCatalog } from '@/lib/dnd/catalog-context';
 import { dayRange } from '@/lib/dnd/cycle';
+import { getBrowserClient } from '@/lib/supabase/client';
 import { useNow, useStore } from '@/lib/dnd/store';
 import { ArtistLink, FinalistCard, ProductCard, VoteBtn } from '../cards';
 import { Btn, CareTag, Countdown, Crumbs, Icon, Photo, SectionHead } from '../ui';
@@ -191,10 +192,7 @@ export function DesignView({ id }: { id: string }) {
         </section>
       ) : (
         <>
-          {product!.reviews > 0 && <section className="section">
-            <SectionHead eyebrow="DO NOT DOUBT" title="Real people. Real fits." />
-            <div className="review-summary"><div><b>{product!.rating}</b><span>★★★★★</span><p>{num(product!.reviews)} ratings</p></div><div className="bars">{[5, 4, 3, 2, 1].map((x, i) => <p key={x}>{x}★ <span><i style={{ width: `${88 - i * 19}%` }} /></span></p>)}</div><div className="fit"><p className="eyebrow">FIT VERDICT</p><b>True to size</b><small>78% said so</small></div></div>
-          </section>}
+          {(product!.reviews > 0 || product!.uuid) && <DesignReviews product={product!} />}
           <section className="section">
             <SectionHead eyebrow="YOU MIGHT ALSO LIKE" title={`More ${product!.mood}`} action="Shop all" href="/shop" />
             <div className="rail products">{winners.filter((w) => w.id !== id).sort((a, b) => Number(b.mood === product!.mood) - Number(a.mood === product!.mood)).slice(0, 4).map((w) => <ProductCard key={w.id} p={w} />)}</div>
@@ -219,5 +217,48 @@ export function DesignView({ id }: { id: string }) {
           : <Btn v="dark" onClick={add}>{live ? (backed ? `Update · ${size}` : `Back it · ${size}`) : `Add to bag · ${size}`}</Btn>}
       </div>
     </div>
+  );
+}
+
+type ReviewRow = { id: string; rating: number; fit: 'small' | 'true' | 'large' | null; size: string | null; body: string | null; created_at: string; author: { name: string | null } | null };
+
+/** Ratings for a winner. Live mode reads real reviews from verified buyers; the demo shows the design's sample numbers. */
+function DesignReviews({ product }: { product: Product }) {
+  const { mode } = useStore();
+  const [rows, setRows] = useState<ReviewRow[] | null>(null);
+  useEffect(() => {
+    if (mode !== 'live' || !product.uuid) return;
+    void getBrowserClient().from('reviews').select('id, rating, fit, size, body, created_at, author:profiles!reviews_user_id_fkey(name)')
+      .eq('design_id', product.uuid).eq('hidden', false).order('created_at', { ascending: false }).limit(50)
+      .then(({ data }) => setRows((data ?? []) as unknown as ReviewRow[]));
+  }, [mode, product.uuid]);
+
+  if (mode === 'demo') {
+    return (
+      <section className="section">
+        <SectionHead eyebrow="DO NOT DOUBT" title="Real people. Real fits." />
+        <div className="review-summary"><div><b>{product.rating}</b><span>★★★★★</span><p>{num(product.reviews)} ratings</p></div><div className="bars">{[5, 4, 3, 2, 1].map((x, i) => <p key={x}>{x}★ <span><i style={{ width: `${88 - i * 19}%` }} /></span></p>)}</div><div className="fit"><p className="eyebrow">FIT VERDICT</p><b>True to size</b><small>78% said so</small></div></div>
+      </section>
+    );
+  }
+  if (!rows?.length) return null;
+  const count = (n: number) => rows.filter((r) => r.rating === n).length;
+  const fits = rows.filter((r) => r.fit);
+  const verdict = (['true', 'small', 'large'] as const).map((f) => [f, fits.filter((r) => r.fit === f).length] as const).sort((a, b) => b[1] - a[1])[0];
+  const avg = rows.reduce((n, r) => n + r.rating, 0) / rows.length;
+  return (
+    <section className="section">
+      <SectionHead eyebrow="DO NOT DOUBT" title="Real people. Real fits." />
+      <div className="review-summary">
+        <div><b>{avg.toFixed(1)}</b><span>{'★'.repeat(Math.round(avg))}{'☆'.repeat(5 - Math.round(avg))}</span><p>{num(rows.length)} rating{rows.length === 1 ? '' : 's'}</p></div>
+        <div className="bars">{[5, 4, 3, 2, 1].map((x) => <p key={x}>{x}★ <span><i style={{ width: `${Math.round((count(x) / rows.length) * 100)}%` }} /></span></p>)}</div>
+        {fits.length > 0 && <div className="fit"><p className="eyebrow">FIT VERDICT</p><b>{verdict[0] === 'true' ? 'True to size' : verdict[0] === 'small' ? 'Runs small' : 'Runs large'}</b><small>{Math.round((verdict[1] / fits.length) * 100)}% said so</small></div>}
+      </div>
+      <div className="review-list">
+        {rows.filter((r) => r.body).slice(0, 6).map((r) => (
+          <article key={r.id}><b>{'★'.repeat(r.rating)}</b><p>“{r.body}”</p><small className="muted">{r.author?.name?.split(' ')[0] ?? 'Club member'}{r.size ? ` · bought ${r.size}` : ''} · Verified buyer</small></article>
+        ))}
+      </div>
+    </section>
   );
 }

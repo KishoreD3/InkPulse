@@ -6,6 +6,7 @@ import { useCatalog } from '@/lib/dnd/catalog-context';
 import { dateTime } from '@/lib/dnd/cycle';
 import { useNow, useStore, type LineStatus, type Order, type OrderLine } from '@/lib/dnd/store';
 import { Btn, Empty, Icon, Photo } from '../ui';
+import { AfterSales } from './AfterSales';
 
 export function Track({ title, status, s, href }: { title: string; status: string; s: LineStatus; href?: string }) {
   return (
@@ -38,7 +39,7 @@ export function OrderView({ id }: { id: string }) {
   const now = useNow(30_000);
   const share = useShare();
   if (!hydrated) return <div className="page-width confirmed"><div className="skeleton" /></div>;
-  const order = state.orders.find((o) => o.id === id);
+  const order = state.orders.find((o) => o.id === id || o.lines.some((l) => l.orderUuid === id));
   if (!order) {
     return <div className="page-width confirmed"><Empty title="We can’t find that order." body={mode === 'live' ? 'Sign in with the account you ordered from to see it.' : 'Orders placed on this device show up in your account.'}><Btn v="dark" href="/account?tab=orders">Your orders</Btn></Empty></div>;
   }
@@ -62,6 +63,7 @@ export function OrderView({ id }: { id: string }) {
         {buys.map((l) => <Track key={l.key} title={`${l.name}${l.qty > 1 ? ` ×${l.qty}` : ''}`} href={`/design/${l.id}`} status={`Paid · ${l.size}`} s={lineStatus(l, order.createdAt, t)} />)}
         {backs.map((l) => <Track key={l.key} title={l.name} href={`/design/${l.id}`} status={`${inr(l.unit)} hold · ${lineStatus(l, order.createdAt, t).label}`} s={lineStatus(l, order.createdAt, t)} />)}
       </div>
+      <AfterSales order={order} delivered={order.lines.filter((l) => ['Delivered', 'Printed & delivered'].includes(lineStatus(l, order.createdAt, t).label))} />
       <OrderSummary order={order} />
       {firstBack && me && !firstBack.outcome && (
         <div className="share-card">

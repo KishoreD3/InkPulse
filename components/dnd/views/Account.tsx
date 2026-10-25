@@ -223,9 +223,45 @@ function Alerts() {
       .then(({ error }) => { if (!error) update({ notifications: state.notifications.map((n) => ({ ...n, read: true })) }); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, session, unread.join()]);
-  if (!state.notifications.length) {
-    return <Empty emoji="🔕" title="All quiet." body="Battle reminders, results and shipping updates show up here." />;
-  }
+  return (
+    <>
+      <NotifyPrefsForm />
+      {state.notifications.length ? <NoteList /> : <Empty emoji="🔕" title="All quiet." body="Battle reminders, results and shipping updates show up here." />}
+    </>
+  );
+}
+
+/** Which channels the club may use, and push on this device. */
+function NotifyPrefsForm() {
+  const { state, setNotify, toast, mode } = useStore();
+  const [pushing, setPushing] = useState(false);
+  const toggle = async (k: keyof typeof state.notify) => {
+    const err = await setNotify({ ...state.notify, [k]: !state.notify[k] });
+    if (err) toast('Not saved', err);
+  };
+  const enable = async () => {
+    setPushing(true);
+    const { enablePush } = await import('@/lib/push-client');
+    const r = mode === 'live' ? await enablePush() : { ok: false as const, error: 'Push works once the store is connected to its database.' };
+    setPushing(false);
+    if (r.ok) toast('Push is on', 'This device will get battle and order alerts.'); else toast('Push not turned on', r.error);
+  };
+  const rows: [keyof typeof state.notify, string, string][] = [
+    ['push', 'Push', 'On this phone or browser'], ['email', 'Email', state.contact.email || 'Add an email at checkout'], ['whatsapp', 'WhatsApp', state.contact.phone || 'Your verified mobile'],
+  ];
+  return (
+    <div className="co-card prefs">
+      <h3>How we reach you</h3>
+      {rows.map(([k, label, sub]) => (
+        <label key={k} className="toggle-row"><span><b>{label}</b><small>{sub}</small></span><input type="checkbox" checked={state.notify[k]} onChange={() => void toggle(k)} /><i /></label>
+      ))}
+      <Btn v="outline" onClick={enable} disabled={pushing}>{pushing ? 'Asking…' : 'Turn on push for this device'}</Btn>
+    </div>
+  );
+}
+
+function NoteList() {
+  const { state } = useStore();
   return (
     <div className="points-log">
       {state.notifications.map((n) => {

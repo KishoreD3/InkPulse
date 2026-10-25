@@ -124,6 +124,20 @@ begin
                   and kind = 'order_released' and body like '%PASS-' || n || '%'), 'release notice carries the pass code';
 end $$;
 
+-- Delivered notices point at the order page (reviews and exchanges), not the old Pulse feed.
+do $$
+declare o uuid;
+begin
+  insert into public.orders (user_id, type, status, ship_to, subtotal, total, payment_status, gateway)
+  values ('eeeeeeee-0000-4000-8000-000000000001', 'retail', 'shipped', '{"name":"Riya"}', 1099, 1099, 'captured', 'test')
+  returning id into o;
+  insert into public.order_items (order_id, design_id, colour, size, qty, unit_price, price_type)
+  values (o, (select id from public.designs where slug = 'midnight-auto'), 'Washed Black', 'M', 1, 1099, 'retail');
+  update public.orders set status = 'delivered' where id = o;
+  assert exists (select 1 from public.notifications where kind = 'order_delivered' and link = '/orders/' || o and body like 'How does it fit%'),
+    'delivered notice links to the order';
+end $$;
+
 -- Members only read their own points.
 begin;
 set local role authenticated;

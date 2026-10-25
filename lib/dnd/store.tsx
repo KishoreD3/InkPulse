@@ -17,9 +17,17 @@ export type LineKind = 'buy' | 'back';
 export type BagLine = { key: string; kind: LineKind; id: string; size: string; colour: ColourKey; qty: number };
 /** Order status from the database (live mode). Demo orders move along by time instead. */
 export type DbStatus = 'pending' | 'backed' | 'won' | 'released' | 'paid' | 'printing' | 'shipped' | 'delivered' | 'cancelled' | 'refunded' | 'failed';
+export type Fit = 'small' | 'true' | 'large';
+export type Review = { rating: number; fit: Fit | null; body: string | null };
 export type OrderLine = BagLine & {
   name: string; image: string; unit: number; drop?: number; closesAt?: number; outcome?: 'won' | 'lost'; status?: DbStatus;
+  /** Live mode: the database order this line belongs to (one checkout can hold several). */
+  orderUuid?: string;
+  review?: Review | null;
 };
+export type ReturnKind = 'exchange' | 'return';
+export type ReturnReason = 'size' | 'damaged' | 'misprint' | 'wrong_item' | 'other';
+export type ReturnRequest = { kind: ReturnKind; status: 'open' | 'approved' | 'rejected' | 'completed'; newSize: string | null; at: number };
 export type Address = { name: string; line1: string; line2: string; city: string; state: string; pin: string };
 export type Contact = { name: string; email: string; phone: string };
 export type Tracking = { carrier: string | null; awb: string | null; url: string | null };
@@ -27,6 +35,8 @@ export type Order = {
   id: string; createdAt: number; lines: OrderLine[]; merch: number; discount: number; reward: number; payNow: number;
   holds: number; coupon: string | null; giftWrap: boolean; payment: string; contact: Contact; address: Address; points: number;
   tracking?: Tracking | null;
+  deliveredAt?: number | null;
+  returns?: ReturnRequest[];
 };
 export type Submission = {
   id: string; createdAt: number; title: string; mood: string; story: string; tags: string; colours: ColourKey[];
@@ -37,6 +47,7 @@ export type Check = { label: string; ok: boolean; note: string };
 export type PointsEntry = { at: number; delta: number; note: string };
 export type Note = { id: string; title: string; body: string | null; link: string | null; at: number; read: boolean };
 export type Toast = { id: number; title: string; body: string; action?: { label: string; href: string } };
+export type NotifyPrefs = { push: boolean; email: boolean; whatsapp: boolean };
 export type CouponInfo = { kind: 'percent' | 'flat'; value: number; label: string };
 /** A Backer Pass: a one-time code after a backed design didn't print (live mode). */
 export type Pass = { code: string; value: number; expiresAt: number };
@@ -46,7 +57,7 @@ export type State = {
   points: number; pointsLog: PointsEntry[]; pastVotes: number; pastBattles: number;
   coupon: string | null; couponInfo: CouponInfo | null; useReward: boolean; submissions: Submission[]; draft: Draft | null;
   contact: Contact; address: Address; upi: string; autopay: boolean; newsletter: string | null; reminders: string[];
-  pincode: string; payoutUpi: string; artistBio: string; notifications: Note[]; passes: Pass[];
+  pincode: string; payoutUpi: string; artistBio: string; notifications: Note[]; passes: Pass[]; notify: NotifyPrefs;
   /** Live mode: designs whose server vote count already includes this member's vote. */
   counted: string[];
 };
@@ -93,6 +104,7 @@ export const blankState: State = {
   bag: [], votes: [], wishlist: [], follows: [], orders: [], points: 0, pointsLog: [], pastVotes: 0, pastBattles: 0,
   coupon: null, couponInfo: null, useReward: true, submissions: [], draft: null, contact: emptyContact, address: emptyAddress,
   upi: '', autopay: false, newsletter: null, reminders: [], pincode: '', payoutUpi: '', artistBio: '', notifications: [], passes: [], counted: [],
+  notify: { push: true, email: true, whatsapp: true },
 };
 
 /** The demo member, Riya, with two past backings. */
@@ -192,6 +204,12 @@ const VOTE_ERRORS: Record<string, string> = {
   banned: 'This account can’t vote.',
 };
 
+/** Turns a database error code (raised by our functions) into words for the shopper. */
+function rpcError(message: string, map: Record<string, string>, fallback: string) {
+  const key = Object.keys(map).find((k) => message.includes(k));
+  return key ? map[key] : fallback;
+}
+
 async function postJson<T>(url: string, body: unknown): Promise<T & { error?: string }> {
   const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   const json = (await res.json().catch(() => ({}))) as T & { error?: string };
@@ -223,6 +241,11 @@ type Api = {
   /** `file` is the original artwork (live mode uploads it at full size; `image` is only a preview). */
   submitDesign: (s: SubmitInput, file?: File | null) => Promise<{ submission: Submission } | { error: string }>;
   subscribe: (email: string) => Promise<string | null>;
+  /** Rate a delivered tee. Resolves with an error message, or null when saved. */
+  postReview: (order: Order, line: OrderLine, review: Review) => Promise<string | null>;
+  /** Ask for a size exchange or a return on a delivered order. */
+  requestReturn: (order: Order, input: { line: OrderLine; kind: ReturnKind; reason: ReturnReason; newSize: string | null; details: string; photos: File[] }) => Promise<string | null>;
+  setNotify: (prefs: NotifyPrefs) => Promise<string | null>;
   refresh: () => Promise<Partial<State> | null>;
   resetDemo: () => void;
   signOut: () => Promise<void>;
@@ -493,6 +516,60 @@ export function StoreProvider({ session = null, children }: { session?: StoreSes
           points: x.points - (q.reward ? REWARD_POINTS : 0) + points, pointsLog: [...log, ...x.pointsLog],
         }));
         return { order };
+      },
+
+      postReview: async (order, line, review) => {
+        const save = () => setState((x) => ({
+          ...x, orders: x.orders.map((o) => (o.id !== order.id ? o : { ...o, lines: o.lines.map((l) => (l.key === line.key ? { ...l, review } : l)) })),
+        }));
+        if (!live) { save(); return null; }
+        if (!session) return 'Sign in again.';
+        const { error } = await getBrowserClient().rpc('post_review', {
+          p_item: line.key, p_rating: review.rating, p_fit: review.fit, p_body: review.body, p_photos: [],
+        });
+        if (error) return rpcError(error.message, { not_delivered: 'You can review once it’s delivered.', banned: 'This account can’t post reviews.' }, 'Couldn’t save your review. Try again.');
+        save();
+        return null;
+      },
+
+      requestReturn: async (order, input) => {
+        const entry: ReturnRequest = { kind: input.kind, status: 'open', newSize: input.kind === 'exchange' ? input.newSize : null, at: Date.now() };
+        const save = () => setState((x) => ({ ...x, orders: x.orders.map((o) => (o.id === order.id ? { ...o, returns: [entry, ...(o.returns ?? [])] } : o)) }));
+        if (!live) { save(); return null; }
+        if (!session) return 'Sign in again.';
+        const orderUuid = input.line.orderUuid;
+        if (!orderUuid) return 'Reload the page and try again.';
+        // Photos go to the member's own folder; the database checks the links point there.
+        const supabase = getBrowserClient();
+        const photos: string[] = [];
+        for (const [i, f] of input.photos.slice(0, 3).entries()) {
+          const filePath = `${session.id}/return-${Date.now()}-${i}.${f.type === 'image/png' ? 'png' : f.type === 'image/webp' ? 'webp' : 'jpg'}`;
+          const up = await supabase.storage.from('posts').upload(filePath, f, { contentType: f.type });
+          if (up.error) return `Photo upload failed: ${up.error.message}`;
+          photos.push(supabase.storage.from('posts').getPublicUrl(filePath).data.publicUrl);
+        }
+        const { error } = await supabase.rpc('request_return', {
+          p_order: orderUuid, p_kind: input.kind, p_reason: input.reason, p_new_size: input.kind === 'exchange' ? input.newSize : null,
+          p_details: input.details.trim() || null, p_photos: photos,
+        });
+        if (error) {
+          return rpcError(error.message, {
+            window_closed: 'The exchange window for this order has closed.', not_delivered: 'You can ask once the order is delivered.',
+            already_requested: 'There’s already a request open for this order.', bad_size: 'That size isn’t available.',
+          }, 'Couldn’t send your request. Try again.');
+        }
+        save();
+        return null;
+      },
+
+      setNotify: async (prefs) => {
+        const before = stateRef.current.notify;
+        setState((x) => ({ ...x, notify: prefs }));
+        if (!live) return null;
+        if (!session) return 'Sign in again.';
+        const { error } = await getBrowserClient().from('profiles').update({ notify: prefs }).eq('id', session.id);
+        if (error) { setState((x) => ({ ...x, notify: before })); return 'Couldn’t save. Try again.'; }
+        return null;
       },
 
       saveProfile: async (patch) => {

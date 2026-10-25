@@ -13,7 +13,7 @@ export function ResultView({ id }: { id: string }) {
   const now = useNow(1000);
   const [preview, setPreview] = useState<boolean | null>(null);
   if (!hydrated) return <div className="result"><div className="skeleton" /></div>;
-  const order = state.orders.find((o) => o.id === id);
+  const order = state.orders.find((o) => o.id === id || o.lines.some((l) => l.orderUuid === id));
   const line = order?.lines.find((l) => l.kind === 'back');
   if (!order || !line) return <div className="page-width"><Empty title="No backing on this order." body="Backing results show up here after Thursday’s lock."><Btn v="dark" href="/battle">Enter the battle</Btn></Empty></div>;
 
