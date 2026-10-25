@@ -2,7 +2,7 @@
   "name": "inkpulse",
   "version": "1.0.0",
   "private": true,
-  "description": "INKPULSE — community-voted weekly t-shirt drops. Web + installable mobile app (PWA).",
+  "description": "The DND Club (formerly INKPULSE) — community-voted weekly t-shirt drops. Web + installable mobile app (PWA).",
   "scripts": {
     "dev": "next dev",
     "build": "node scripts/migrate.mjs && next build",

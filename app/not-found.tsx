@@ -1,11 +1,17 @@
-import Link from 'next/link';
+import './(store)/dnd.css';
 
+// Root 404: rendered outside the store layout, so it brings the store's stylesheet with it.
 export default function NotFound() {
   return (
-    <div className="container-page py-20 text-center flex flex-col items-center gap-4">
-      <h1 className="h-display text-[96px] leading-none misprint">404</h1>
-      <p className="text-body">That page didn&apos;t make the cut.</p>
-      <Link href="/" className="btn-pink">Back to the live drop</Link>
+    <div className="app">
+      <div className="page-width section">
+        <div className="empty">
+          <span>🚪</span>
+          <h3>Do not disturb.</h3>
+          <p className="muted">This page is fast asleep, or it never existed.</p>
+          <a className="btn btn-dark" href="/">Back to the store</a>
+        </div>
+      </div>
     </div>
   );
 }

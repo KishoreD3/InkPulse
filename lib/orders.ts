@@ -121,7 +121,7 @@ export async function startCheckout(userId: string, input: CheckoutInput, source
     total,
     gatewayOrderId: gw.id,
     amountPaise: gw.amount,
-    description: type === 'backing' ? `Back ${lines[0].design.name} — debited only if it prints` : `INKPULSE order #${order.number}`,
+    description: type === 'backing' ? `Back ${lines[0].design.name} — debited only if it prints` : `The DND Club order #${order.number}`,
     prefill: { name: address.name, contact: `+91${address.phone}` },
   };
 }

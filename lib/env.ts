@@ -3,7 +3,7 @@
 
 export const publicEnv = {
   siteUrl: process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000',
-  siteName: process.env.NEXT_PUBLIC_SITE_NAME || 'INKPULSE',
+  siteName: process.env.NEXT_PUBLIC_SITE_NAME || 'The DND Club',
   supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || '',
   // Supabase's Vercel integration may provide the newer "publishable" key name instead of the anon key.
   supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || '',

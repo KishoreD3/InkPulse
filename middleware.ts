@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
-const PROTECTED = ['/checkout', '/orders', '/me', '/notifications', '/submit', '/studio', '/admin'];
+// The storefront runs on browser state until it is wired to Supabase, so only the ops console needs a session.
+const PROTECTED = ['/admin'];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -43,5 +44,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|icons/|seed/|sw.js|manifest.webmanifest|api/webhooks|api/cron).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|icons/|seed/|dnd/|sw.js|manifest.webmanifest|api/webhooks|api/cron).*)'],
 };

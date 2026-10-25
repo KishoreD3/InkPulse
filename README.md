@@ -1,22 +1,43 @@
-# INKPULSE
+# The DND Club
 
-Weekly community-voted t-shirt drops. One codebase is both the **website** and the **installable mobile app** (PWA for Android and iPhone).
+Original Indian art on tees, picked by the community every week. (Formerly InkPulse.) One codebase is both the **website** and the **installable mobile app** (PWA for Android and iPhone).
 
-- **Monday**: drop opens. **Thursday 23:59 IST**: voting locks and the top 3 win. **Friday**: winners go to print.
-- Early backers lock **₹899** (₹1,099 after 5,000 votes or after the drop). Backers are **debited only if the design prints**.
-- **Artist-first:** every tee pays the artist who drew it a fixed % of its price (default 15%, set in Admin → Settings) — winners, retail window and reprints.
-- **Curated entry**: every design is human-reviewed before it can reach the leaderboard.
+- **Monday 10 AM IST**: the weekly battle opens. **Thursday 9 PM IST**: voting locks and the top 3 finalists win. **Friday**: winners go to print.
+- **Back it** at **₹899** (₹1,099 retail later). Backers are charged **only if the design finishes top 3**; otherwise the hold is released.
+- **Artist-first:** every tee pays the artist who drew it **15%**, forever.
+- **Curated entry**: every design is human-reviewed before it reaches the battle.
 
-Stack: Next.js 14 (App Router, TypeScript, Tailwind) · Supabase (Postgres, Auth, Storage, Realtime) · Razorpay · Resend (email) · Web Push · any WhatsApp BSP · Vercel.
+Stack: Next.js 14 (App Router, TypeScript) · Supabase (Postgres, Auth, Storage, Realtime) · Razorpay · Resend (email) · Web Push · any WhatsApp BSP · Vercel.
 
 ---
 
-## What is in the box
+## Storefront (new design)
+
+The shopper and artist screens are built from the Figma Make design **“The DND Club — Store v3”**. They run fully in the browser today, on the design's catalogue, with all state saved in `localStorage` (key `dnd-club-v1`):
+
+| Screen | Route | What works |
+|---|---|---|
+| Home | `/` | Hero that rotates through the live leaders, battle strip with live countdown, winners, artists, moods |
+| Shop | `/shop` | Winners and live finalists, URL-driven filters (mood, fit, colour, size, price, collection), sort, load more, mobile filter sheet |
+| Battle | `/battle` | Live standings re-ranked as votes come in, top-3 print zone, vote and back |
+| Design | `/design/[id]` | Gallery, colour and size (per fit), size guide, PIN code delivery check, back or vote, add to bag, buy now |
+| Bag / Checkout | `/bag`, `/checkout` | Edit size, colour and qty, coupons (`SNOOZE10`, `NIGHTOWL15`), club reward, contact/address validation, UPI verify or card (Luhn) in **test mode** |
+| Orders | `/orders/[id]`, `/result/[id]` | Tracking timeline, backing result after Thursday's lock, share via Web Share/WhatsApp/link |
+| Account | `/account?tab=…` | Overview, backings, orders, votes, wishlist, rewards, addresses, payments; reset demo |
+| Artists | `/artists`, `/artists/[slug]` | Filters, search, follow, profile with winners and live designs |
+| Topics | `/topics` | Upcoming topics with reminders |
+| Studio | `/studio` | 5-step submission wizard: real file checks (print size, transparency, print area, size), live tee preview, autosaved draft, 2 entries per topic |
+| Artist dashboard | `/dashboard` | Earnings, monthly sales chart, submissions, payouts UPI, public bio |
+| Legal | `/legal/[slug]` | Terms, privacy, artist terms, shipping & returns, size guide, contact |
+
+Night mode (the **DND** switch), search (`/` to open, Esc to close) and toasts work on every page. Store code lives in `lib/dnd/` (catalogue, weekly cycle maths, store) and `components/dnd/`.
+
+**Next step:** connect the storefront to the Supabase backend below (catalogue from `drops`/`submissions`, votes via `cast_vote()`, Razorpay checkout). Admin, API routes, cron, payments and the database schema are unchanged and still run against Supabase.
+
+## Backend (unchanged)
 
 | Area | What works |
 |---|---|
-| Shoppers | Live board with realtime vote counts, print line, early-backer meter, category filters · design page with colourway/size pickers and tee mockups · backing checkout (Razorpay, manual capture) · bag + checkout for printed winners · order tracking · The Pulse feed (posts, likes, comments, reposts, reports) · artists directory + public “artists, paid” scoreboard · artist profiles, follow · search · notifications centre · profile, addresses, phone verification · install-app + push opt-in |
-| Artists | Become-an-artist flow · 5-step submit wizard (upload ≥4500×5400 PNG/SVG, live mockup preview, colours, originality terms) · studio with statuses, votes, backers, earnings, payout details (PAN/UPI/bank) · share kit |
 | Admin | Dashboard (voters, backers, reserved ₹, conversion, alerts) · curated submissions queue with reverse-image-search link · drops (line-up, manual open/lock/print/ship) · orders + print summary + AWB entry + refunds · per-drop financials (revenue, costs, paid to artists, net profit) · artist KYC + payouts · moderation · users (artist/admin/ban) · all business numbers in Settings |
 | Automation | `/api/cron/tick` every 15 min: opens Monday drops, locks Thursday, ranks, captures winners / releases losers, sends Friday print batch, dispatches notifications. Idempotent — safe to re-run. |
 | Notifications | In-app always; push (VAPID), email (Resend) and WhatsApp (generic BSP adapter) per user preference |
@@ -24,6 +45,7 @@ Stack: Next.js 14 (App Router, TypeScript, Tailwind) · Supabase (Postgres, Auth
 
 ### What was verified here
 - `npm run typecheck`, `npm run lint` and `npm run build` pass.
+- The storefront was driven end to end in Chromium: add to bag, back a finalist, vote, coupons, checkout to an order page, order persistence, account tabs, shop filters, search, night mode and studio upload, with no console errors and no horizontal scroll at 390 px.
 - `npm run db:test` applies all migrations + seed to a real Postgres 16 and runs `supabase/tests/smoke.sql`: voting, idempotency, withdraw, rate limit, phone-verification guard, RLS guards, price quotes, backer counts, Thursday lock + ranking + tie-break, artist earnings, net-profit maths, Monday open, IST scheduling.
 - Screens were rendered and checked at 390 px and 1440 px.
 
@@ -110,13 +132,17 @@ Everything above can also be triggered from **Admin → Drops** (useful for laun
 
 ## Project map
 ```
-app/                 pages (shopper, studio, admin) + API routes + server actions
-components/          UI (Tee mockup, Board, BuyBox, PostCard, …)
+app/(store)          storefront pages (new design) + dnd.css
+app/(ops)            admin + sign-in (Tailwind)
+app/api, app/actions API routes + server actions
+components/dnd       storefront UI: shell, cards, views
+components/          admin UI, Tee mockup, toaster
+lib/dnd              catalogue, weekly cycle maths, browser store
 lib/                 data access, auth, orders, Razorpay, jobs, print, notifications
 supabase/migrations  schema, business logic (SQL), RLS, public aggregates
 supabase/seed.sql    demo data (staging only)
 supabase/tests       smoke tests  (npm run db:test)
-public/              PWA manifest, service worker, icons, demo artwork
+public/              PWA manifest, service worker, icons, design images (public/dnd)
 ```
 
 ## The topic cycle
@@ -143,7 +169,7 @@ A new topic goes up every Monday, so three drops always overlap: one voting, one
 - **Exchanges & returns** — after delivery (within the window in Settings) buyers request a size exchange or return with photos; Admin → Returns approves/declines/completes and the member is notified. Refunds are still issued from Orders.
 
 ## Install as an app
-- **Android/Chrome**: “Install the INKPULSE app” button on the Profile page, or the browser's install prompt.
+- **Android/Chrome**: the browser's install prompt (the manifest and service worker make the store installable).
 - **iPhone**: Safari → Share → Add to Home Screen (push works on iOS 16.4+ once installed).
 - Need store listings later? Wrap the PWA with a Trusted Web Activity (Play Store) or Capacitor — no rewrite needed.
 

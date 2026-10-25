@@ -1,5 +1,5 @@
-/* INKPULSE service worker: offline shell, static caching, web push. */
-const VERSION = 'inkpulse-v1';
+/* The DND Club service worker: offline shell, static caching, web push. */
+const VERSION = 'dndclub-v1';
 const STATIC = `${VERSION}-static`;
 const PAGES = `${VERSION}-pages`;
 const PRECACHE = ['/offline', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
@@ -23,8 +23,8 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/admin')) return;
 
-  // Immutable build assets + seed art: cache first.
-  if (url.pathname.startsWith('/_next/static/') || url.pathname.startsWith('/seed/') || url.pathname.startsWith('/icons/')) {
+  // Immutable build assets + catalogue photos: cache first.
+  if (url.pathname.startsWith('/_next/static/') || url.pathname.startsWith('/seed/') || url.pathname.startsWith('/dnd/') || url.pathname.startsWith('/icons/')) {
     event.respondWith(
       caches.match(request).then((hit) => hit || fetch(request).then((res) => {
         const copy = res.clone();
@@ -51,9 +51,9 @@ self.addEventListener('fetch', (event) => {
 
 self.addEventListener('push', (event) => {
   let data = {};
-  try { data = event.data ? event.data.json() : {}; } catch { data = { title: 'INKPULSE', body: event.data && event.data.text() }; }
+  try { data = event.data ? event.data.json() : {}; } catch { data = { title: 'The DND Club', body: event.data && event.data.text() }; }
   event.waitUntil(
-    self.registration.showNotification(data.title || 'INKPULSE', {
+    self.registration.showNotification(data.title || 'The DND Club', {
       body: data.body || '',
       icon: '/icons/icon-192.png',
       badge: '/icons/icon-192.png',
