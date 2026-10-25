@@ -28,6 +28,7 @@ export function ArtistsView() {
       <div className="artist-search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by artist or city" aria-label="Search artists" /></div>
       <div className="chips">{CHIPS.map((x) => <button key={x} aria-pressed={chip === x} className={chip === x ? 'on' : ''} onClick={() => setChip(x)}>{x}{x === 'Following' && state.follows.length ? ` · ${state.follows.length}` : ''}</button>)}</div>
       {list.length ? <div className="artist-grid">{list.map((a) => <ArtistCard key={a.slug} a={a} />)}</div>
+        : !artists.length ? <Empty title="No artists yet." body="Submit your art to be the first one here." />
         : <Empty title={chip === 'Following' ? 'You’re not following anyone yet.' : 'No artists match that.'} body={chip === 'Following' ? 'Follow artists to hear when their designs hit the battle.' : 'Try a city, or clear the search.'}><Btn v="outline" onClick={() => { setQ(''); setChip('All artists'); }}>Show all artists</Btn></Empty>}
     </div>
   );
