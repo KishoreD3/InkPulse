@@ -1,6 +1,6 @@
 // Applies supabase/migrations/*.sql (once each, in order) before every build.
 // Uses the direct Postgres URL that Vercel's Supabase integration provides.
-// Optional: SEED_DEMO=true loads supabase/seed.sql into an empty database (test/staging only).
+// Optional: SEED_DEMO=true loads supabase/seed_dnd.sql into an empty database (test/staging only).
 // Optional: ADMIN_EMAILS=a@b.com,c@d.com makes those accounts admins.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -45,7 +45,7 @@ async function main() {
     if (rows[0].n === 0) {
       console.log('[migrate] loading demo seed');
       await client.query('begin');
-      await client.query(fs.readFileSync(path.join(root, 'supabase', 'seed.sql'), 'utf8'));
+      await client.query(fs.readFileSync(path.join(root, 'supabase', 'seed_dnd.sql'), 'utf8'));
       await client.query('commit');
     }
   }

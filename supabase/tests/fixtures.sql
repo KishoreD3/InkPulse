@@ -1,4 +1,4 @@
--- INKPULSE · DEMO DATA for local development and staging.
+-- Test fixtures for supabase/tests (smoke, growth, topics). Not a demo catalogue: see supabase/seed_dnd.sql.
 -- Do NOT run on production. Every person, cause partner and amount here is sample data.
 
 -- Demo artists (cannot sign in: no password, no phone).
