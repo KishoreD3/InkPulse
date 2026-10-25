@@ -70,7 +70,7 @@ export async function submitBatch(batchId: string, lines: PrintLine[]): Promise<
   if (process.env.PRINT_OPS_EMAIL) {
     const units = lines.reduce((s, l) => s + l.qty, 0);
     await sendEmail(process.env.PRINT_OPS_EMAIL, `Print batch ready · ${units} tees`,
-      `A new INKPULSE print batch is ready (${units} tees, ${new Set(lines.map((l) => l.order_id)).size} orders).\n\nDownload CSV (valid 7 days): ${signed?.signedUrl ?? path}`).catch(() => {});
+      `A new DND Club print batch is ready (${units} tees, ${new Set(lines.map((l) => l.order_id)).size} orders).\n\nDownload CSV (valid 7 days): ${signed?.signedUrl ?? path}`).catch(() => {});
   }
   return { mode, filePath: path };
 }

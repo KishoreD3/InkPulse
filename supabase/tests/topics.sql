@@ -11,7 +11,7 @@ begin
   assert d45.opens_at = d44.opens_at + interval '7 days', 'drops are a week apart';
   assert extract(isodow from d44.topic_at at time zone 'Asia/Kolkata') = 1
      and to_char(d44.topic_at at time zone 'Asia/Kolkata', 'HH24:MI') = '10:00', 'topic published Monday 10:00 IST';
-  assert d44.opens_at - d44.topic_at = interval '13 days 14 hours', 'topic two weeks ahead of voting';
+  assert d44.opens_at - d44.topic_at = interval '14 days', 'topic two weeks ahead of voting (both Monday 10:00 IST)';
   assert extract(isodow from d44.submissions_close_at at time zone 'Asia/Kolkata') = 3
      and to_char(d44.submissions_close_at at time zone 'Asia/Kolkata', 'HH24:MI') = '23:59', 'submissions close Wednesday 23:59 IST';
 end $$;

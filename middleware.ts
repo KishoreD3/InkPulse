@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
-const PROTECTED = ['/checkout', '/orders', '/me', '/notifications', '/submit', '/studio', '/admin'];
+// Pages that need a member. Without a database the store runs as a demo in the browser and nothing is protected.
+const PROTECTED = ['/admin', '/account', '/dashboard', '/studio', '/checkout', '/orders', '/result'];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -43,5 +44,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|icons/|seed/|sw.js|manifest.webmanifest|api/webhooks|api/cron).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|icons/|seed/|dnd/|sw.js|manifest.webmanifest|api/webhooks|api/cron).*)'],
 };

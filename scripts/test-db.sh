@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Spins up a throwaway Postgres, applies every migration + the seed, and runs
-# supabase/tests/smoke.sql (voting, RLS, drop lock, orders, money).
+# supabase/tests/smoke.sql (voting, RLS, drop lock, orders, money), then loads the DND demo
+# catalogue into a second database and runs supabase/tests/store.sql.
 # Needs Postgres 15+ binaries on PATH or in /usr/lib/postgresql/<v>/bin.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -24,12 +25,22 @@ for f in supabase/migrations/*.sql; do
   echo "→ $f"
   $PSQL -f "$f"
 done
-echo "→ supabase/seed.sql"
-$PSQL -f supabase/seed.sql >/dev/null
+echo "→ supabase/tests/fixtures.sql"
+$PSQL -f supabase/tests/fixtures.sql >/dev/null
 echo "→ supabase/tests/smoke.sql"
 $PSQL -f supabase/tests/smoke.sql
 echo "→ supabase/tests/growth.sql"
 $PSQL -f supabase/tests/growth.sql
 echo "→ supabase/tests/topics.sql"
 $PSQL -f supabase/tests/topics.sql
+
+# Second database: migrations + the DND demo catalogue, then the storefront tests.
+psql -h /tmp -p "$PORT" -U postgres -d postgres -q -c 'create database dnd' >/dev/null
+PSQL2="psql -h /tmp -p $PORT -U postgres -d dnd -v ON_ERROR_STOP=1 -q"
+$PSQL2 -f scripts/auth-stub.sql 2>/dev/null || $PSQL2 -f <(grep -v '^create role' scripts/auth-stub.sql)
+for f in supabase/migrations/*.sql; do $PSQL2 -f "$f" >/dev/null; done
+echo "→ supabase/seed_dnd.sql"
+$PSQL2 -f supabase/seed_dnd.sql >/dev/null
+echo "→ supabase/tests/store.sql"
+$PSQL2 -f supabase/tests/store.sql
 echo "✓ database tests passed"

@@ -21,7 +21,19 @@ const nextConfig = {
     remotePatterns: [{ protocol: 'https', hostname: supabaseHost }],
   },
   async redirects() {
-    return [{ source: '/causes', destination: '/artists', permanent: true }];
+    // Older links (some still sent in notifications) point at the pre-redesign routes.
+    return [
+      { source: '/causes', destination: '/artists', permanent: true },
+      { source: '/d/:slug', destination: '/design/:slug', permanent: true },
+      { source: '/a/:handle', destination: '/artists/:handle', permanent: true },
+      { source: '/me', destination: '/account', permanent: true },
+      { source: '/me/:path*', destination: '/account', permanent: true },
+      { source: '/notifications', destination: '/account?tab=alerts', permanent: true },
+      { source: '/submit', destination: '/studio', permanent: true },
+      { source: '/submit/:path*', destination: '/studio', permanent: true },
+      { source: '/pulse', destination: '/artists', permanent: false },
+      { source: '/pulse/:path*', destination: '/artists', permanent: false },
+    ];
   },
   async headers() {
     return [

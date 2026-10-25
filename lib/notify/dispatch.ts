@@ -39,7 +39,7 @@ export async function sendEmail(to: string, subject: string, text: string, html?
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: process.env.EMAIL_FROM || 'INKPULSE <onboarding@resend.dev>', to, subject, text, html }),
+    body: JSON.stringify({ from: process.env.EMAIL_FROM || 'The DND Club <onboarding@resend.dev>', to, subject, text, html }),
   });
   if (!res.ok) throw new Error(`email ${res.status}`);
 }
@@ -48,10 +48,10 @@ function emailHtml(n: Pending) {
   const link = n.link ? `${site()}${n.link}` : site();
   return `<div style="font-family:Arial,sans-serif;background:#E4DEFF;padding:24px">
   <div style="max-width:520px;margin:auto;background:#fff;border:2px solid #111;border-radius:16px;padding:24px">
-    <p style="font:700 22px Impact,Arial Black,sans-serif;letter-spacing:1px;margin:0 0 12px">INKPULSE</p>
+    <p style="font:800 22px Arial Black,Arial,sans-serif;letter-spacing:-0.5px;margin:0 0 12px;color:#6C4BFF">the DND club</p>
     <h1 style="font-size:22px;margin:0 0 8px">${escapeHtml(n.title)}</h1>
     <p style="font-size:15px;line-height:1.5;color:#36324D">${escapeHtml(n.body ?? '')}</p>
-    <a href="${link}" style="display:inline-block;margin-top:12px;background:#FF3EA5;color:#111;border:2px solid #111;border-radius:12px;padding:12px 18px;font-weight:700;text-decoration:none">Open INKPULSE</a>
+    <a href="${link}" style="display:inline-block;margin-top:12px;background:#FFD23F;color:#141217;border:2px solid #141217;border-radius:999px;padding:12px 20px;font-weight:800;text-decoration:none">Open The DND Club</a>
   </div></div>`;
 }
 const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
