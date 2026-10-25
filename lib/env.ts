@@ -1,8 +1,12 @@
 // Central, typed access to environment variables. Server-only values throw
 // a clear error when used without being configured.
 
+// Without NEXT_PUBLIC_SITE_URL, a Vercel deployment falls back to its own production
+// domain so share images, the sitemap and email links never point at localhost.
+const vercelHost = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL;
+
 export const publicEnv = {
-  siteUrl: process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000',
+  siteUrl: process.env.NEXT_PUBLIC_SITE_URL || (vercelHost ? `https://${vercelHost}` : 'http://localhost:3000'),
   siteName: process.env.NEXT_PUBLIC_SITE_NAME || 'The DND Club',
   supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || '',
   // Supabase's Vercel integration may provide the newer "publishable" key name instead of the anon key.
