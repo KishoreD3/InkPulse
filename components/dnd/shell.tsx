@@ -2,8 +2,9 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { BACK, BATTLE, COLLECTIONS, FITS, RETAIL, artists, finalists, img, inr, moods, winners } from '@/lib/dnd/catalog';
-import { quote, useStore } from '@/lib/dnd/store';
+import { COLLECTIONS, FITS, inr, moods } from '@/lib/dnd/catalog';
+import { useCatalog } from '@/lib/dnd/catalog-context';
+import { useStore } from '@/lib/dnd/store';
 import { Countdown, Icon, Logo, Photo, type IconName } from './ui';
 
 export function Shell({ children }: { children: React.ReactNode }) {
@@ -37,9 +38,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
 }
 
 function Header({ path, openSearch }: { path: string; openSearch: () => void }) {
-  const { state, hydrated, night, setNight } = useStore();
+  const { hydrated, night, setNight, quote, mode, session } = useStore();
+  const { winners, finalists, battle, prices } = useCatalog();
   const [megaOpen, setMegaOpen] = useState(false);
-  const bag = hydrated ? quote(state).items : 0;
+  const bag = hydrated ? quote().items : 0;
+  const accountHref = mode === 'live' && !session ? '/signin?next=/account' : '/account';
   const isShop = path.startsWith('/shop') || (path.startsWith('/design/') && winners.some((w) => path.endsWith(`/${w.id}`)));
   const isBattle = path.startsWith('/battle') || (path.startsWith('/design/') && finalists.some((f) => path.endsWith(`/${f.id}`)));
   const close = () => setMegaOpen(false);
@@ -47,8 +50,8 @@ function Header({ path, openSearch }: { path: string; openSearch: () => void }) 
   const line = (
     <>
       <span><Icon name="moon" size={13} /> DND is ON — notifications muted, deals unmuted</span><b>✦</b>
-      <span>{BATTLE.topic} voting closes in <Countdown /></span><b>✦</b>
-      <span>Back a design at {inr(BACK)} · pay only if it prints</span><b>✦</b>
+      {battle.live ? <><span>{battle.topic} voting closes in <Countdown /></span><b>✦</b></> : null}
+      <span>Back a design at {inr(prices.back)} · pay only if it prints</span><b>✦</b>
       <span>Free shipping across India</span><b>✦</b>
       <span>Code SNOOZE10 · 10% off your first drop</span><b>✦</b>
     </>
@@ -67,7 +70,7 @@ function Header({ path, openSearch }: { path: string; openSearch: () => void }) 
           </label>
           <button className="icon-btn mobile-only" aria-label="Search" onClick={openSearch}><Icon name="search" /></button>
           <Link className="icon-btn" aria-label="Wishlist" href="/account?tab=wishlist"><Icon name="heart" /></Link>
-          <Link className={`icon-btn ${path.startsWith('/account') || path.startsWith('/dashboard') ? 'active' : ''}`} aria-label="Account" href="/account"><Icon name="user" /></Link>
+          <Link className={`icon-btn ${path.startsWith('/account') || path.startsWith('/dashboard') ? 'active' : ''}`} aria-label={accountHref === '/account' ? 'Account' : 'Sign in'} href={accountHref}><Icon name="user" /></Link>
           <Link className={`icon-btn bag ${path.startsWith('/bag') || path.startsWith('/checkout') ? 'active' : ''}`} aria-label={`Bag, ${bag} items`} href="/bag"><Icon name="bag" />{bag > 0 && <em>{bag}</em>}</Link>
         </div>
       </div>
@@ -114,15 +117,15 @@ function Header({ path, openSearch }: { path: string; openSearch: () => void }) 
                   </div>
                 </div>
                 <Link className="mega-promo" href="/battle" onClick={close}>
-                  <span className="sticker red">LIVE · DROP 0{BATTLE.drop}</span>
-                  <strong>Back {BATTLE.topic} at {inr(BACK)}</strong>
-                  <p>Vote on {finalists.length} finalist designs. Top 3 go to print this Friday.</p>
+                  <span className="sticker red">{battle.live ? `LIVE · DROP ${String(battle.drop).padStart(3, '0')}` : 'NEXT BATTLE'}</span>
+                  <strong>{battle.live ? `Back ${battle.topic} at ${inr(prices.back)}` : `${battle.topic} opens Monday`}</strong>
+                  <p>{battle.live ? `Vote on ${finalists.length} finalist designs. Top ${battle.winners} go to print this Friday.` : 'Finalists go live Monday at 10 AM.'}</p>
                   <small>Enter the battle →</small>
                 </Link>
               </div>
             </div>
 
-            <Link className="nav-item" href="/shop?collection=new"><span>New Drops</span><em className="nav-pill">043</em></Link>
+            <Link className="nav-item" href="/shop?collection=new"><span>New Drops</span><em className="nav-pill">{String(Math.max(0, ...winners.map((w) => w.drop))).padStart(3, '0')}</em></Link>
             <Link className={`nav-item nav-item-battle ${isBattle ? 'active' : ''}`} href="/battle"><i className="live-dot" /><span>Live Battle</span><em className="nav-pill live">VOTE</em></Link>
             <Link className={`nav-item ${path.startsWith('/topics') ? 'active' : ''}`} href="/topics"><span>Topics</span></Link>
             <Link className={`nav-item ${path.startsWith('/artists') ? 'active' : ''}`} href="/artists"><span>Artists</span></Link>
@@ -144,16 +147,18 @@ function Header({ path, openSearch }: { path: string; openSearch: () => void }) 
 }
 
 function Footer() {
-  const { state, update, toast } = useStore();
+  const { state, update, toast, subscribe } = useStore();
   const [email, setEmail] = useState('');
   const [err, setErr] = useState('');
   const join = (e: React.FormEvent) => {
     e.preventDefault();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) { setErr('Enter a valid email address.'); return; }
     setErr('');
-    update({ newsletter: email.trim().toLowerCase() });
-    toast('You’re unmuted', 'One email a week. Zero spam.');
-    setEmail('');
+    void subscribe(email.trim().toLowerCase()).then((error) => {
+      if (error) { setErr(error); return; }
+      toast('You’re unmuted', 'One email a week. Zero spam.');
+      setEmail('');
+    });
   };
   const cols: [string, [string, string][]][] = [
     ['SHOP', [['New drops', '/shop?collection=new'], ['Bestsellers', '/shop?collection=bestsellers'], ['Live finalists', '/shop?view=live'], ['Under ₹999', '/shop?collection=under-999']]],
@@ -211,12 +216,7 @@ function MobileNav({ path }: { path: string }) {
   );
 }
 
-const TOPICS = [
-  { title: 'Monsoon Mood', note: 'Voting now', href: '/battle' },
-  { title: 'Beautiful Chaos', note: 'Submissions open', href: '/studio' },
-  { title: 'Night Shift', note: 'In review', href: '/topics' },
-  { title: 'Future Folklore', note: 'Printing', href: '/shop?collection=new' },
-];
+const STAGE_NOTE = { voting: ['Voting now', '/battle'], submissions: ['Submissions open', '/studio'], review: ['In review', '/topics'], printing: ['Printing', '/shop?collection=new'] } as const;
 
 function SearchOverlay({ close }: { close: () => void }) {
   const [q, setQ] = useState('');
@@ -225,10 +225,12 @@ function SearchOverlay({ close }: { close: () => void }) {
   const term = q.trim().toLowerCase();
   const words = term.split(/\s+/).filter(Boolean);
   const match = (hay: string) => words.every((w) => hay.toLowerCase().includes(w));
+  const { winners, finalists, artists, battle, stages, prices } = useCatalog();
+  const TOPICS = stages.map((st) => ({ title: st.title, note: STAGE_NOTE[st.phase][0], href: STAGE_NOTE[st.phase][1] }));
   const hits = useMemo(() => {
     const designs = [
-      ...winners.map((p) => ({ id: p.id, name: p.name, sub: `by ${p.artist} · ${p.mood} · ${p.fit}`, img: img.product(p.id, 1), price: inr(RETAIL), hay: `${p.name} ${p.artist} ${p.city} ${p.mood} ${p.fit} ${p.topic} winner` })),
-      ...finalists.map((f) => ({ id: f.id, name: f.name, sub: `Live finalist · by ${f.artist}`, img: img.finalist(f.id), price: inr(BACK), hay: `${f.name} ${f.artist} ${f.city} ${BATTLE.topic} live finalist monsoon` })),
+      ...winners.map((p) => ({ id: p.id, name: p.name, sub: `by ${p.artist} · ${p.mood} · ${p.fit}`, img: p.photos[0], price: inr(prices.retail), hay: `${p.name} ${p.artist} ${p.city} ${p.mood} ${p.fit} ${p.topic} winner` })),
+      ...finalists.map((f) => ({ id: f.id, name: f.name, sub: `Live finalist · by ${f.artist}`, img: f.card, price: inr(prices.back), hay: `${f.name} ${f.artist} ${f.city} ${battle.topic} live finalist` })),
     ];
     return {
       designs: (words.length ? designs.filter((d) => match(d.hay)) : designs.slice(0, 4)).slice(0, 5),

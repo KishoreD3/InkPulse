@@ -1,17 +1,20 @@
 'use client';
 import Link from 'next/link';
 import { useState } from 'react';
-import { BACK, COLOURS, SIZES, colourOf, inr, productById } from '@/lib/dnd/catalog';
-import { lineInfo, quote, useStore, type BagLine } from '@/lib/dnd/store';
+import { COLOURS, SIZES, colourOf, inr } from '@/lib/dnd/catalog';
+import { useCatalog } from '@/lib/dnd/catalog-context';
+import { useStore, type BagLine } from '@/lib/dnd/store';
 import { Btn, Empty, Icon, Photo } from '../ui';
 import { sizesFor } from './Shop';
 
 export function BagItem({ l, editable = true }: { l: BagLine; editable?: boolean }) {
-  const { setQty, removeLine, update, state } = useStore();
+  const { setQty, removeLine, update, state, lineInfo } = useStore();
+  const { prices, productById, finalistById } = useCatalog();
   const info = lineInfo(l);
   const p = l.kind === 'buy' ? productById(l.id) : undefined;
+  const f = l.kind === 'back' ? finalistById(l.id) : undefined;
   const sizes = p ? sizesFor(p) : [...SIZES];
-  const colours = p ? COLOURS.filter((c) => p.colours.includes(c.key)) : COLOURS.slice(0, 4);
+  const colours = COLOURS.filter((c) => (p ?? f)?.colours.includes(c.key) ?? true);
   const href = `/design/${l.id}`;
   // Changing size or colour rewrites the line key; merge with an identical line if one exists.
   const change = (patch: Partial<BagLine>) => {
@@ -48,16 +51,18 @@ export function BagItem({ l, editable = true }: { l: BagLine; editable?: boolean
           </div>
         )}
       </div>
-      <strong>{l.kind === 'back' ? `${inr(BACK)} hold` : inr(info.unit * l.qty)}</strong>
+      <strong>{l.kind === 'back' ? `${inr(prices.back)} hold` : inr(info.unit * l.qty)}</strong>
     </div>
   );
 }
 
 export function BagView() {
-  const { state, hydrated, applyCoupon, clearCoupon, setUseReward } = useStore();
+  const { state, hydrated, applyCoupon, clearCoupon, setUseReward, quote } = useStore();
+  const { prices } = useCatalog();
   const [code, setCode] = useState('');
   const [err, setErr] = useState('');
-  const q = quote(state);
+  const [busy, setBusy] = useState(false);
+  const q = quote();
   const backs = state.bag.filter((l) => l.kind === 'back');
   const buys = state.bag.filter((l) => l.kind === 'buy');
 
@@ -66,15 +71,18 @@ export function BagView() {
     return (
       <div className="page-width bag">
         <h1>Your bag <span>(0)</span></h1>
-        <Empty emoji="😴" title="Your bag is on snooze." body="Back a live design for ₹899, or pick up a winner that’s already printed.">
+        <Empty emoji="😴" title="Your bag is on snooze." body={`Back a live design for ${inr(prices.back)}, or pick up a winner that’s already printed.`}>
           <div className="row"><Btn v="dark" href="/battle">Enter the battle</Btn><Btn v="outline" href="/shop">Shop winners</Btn></div>
         </Empty>
       </div>
     );
   }
-  const apply = (e: React.FormEvent) => {
+  const apply = async (e: React.FormEvent) => {
     e.preventDefault();
-    const r = applyCoupon(code);
+    if (busy) return;
+    setBusy(true);
+    const r = await applyCoupon(code);
+    setBusy(false);
     setErr(r ?? '');
     if (!r) setCode('');
   };
@@ -111,7 +119,7 @@ export function BagView() {
           {state.coupon ? (
             <div className="coupon applied"><span>✓ {state.coupon} applied</span><button onClick={clearCoupon}>Remove</button></div>
           ) : (
-            <form className="coupon" onSubmit={apply}><input value={code} onChange={(e) => { setCode(e.target.value); setErr(''); }} placeholder="Coupon code (try SNOOZE10)" aria-label="Coupon code" /><button type="submit">Apply</button></form>
+            <form className="coupon" onSubmit={apply}><input value={code} onChange={(e) => { setCode(e.target.value); setErr(''); }} placeholder="Coupon code (try SNOOZE10)" aria-label="Coupon code" /><button type="submit" disabled={busy}>{busy ? '…' : 'Apply'}</button></form>
           )}
           {err && <p className="field-error" role="alert">{err}</p>}
           <label className={`toggle-row ${state.points < 100 || q.merch === 0 ? 'disabled' : ''}`}>

@@ -279,6 +279,35 @@ begin
   end if;
 end $$;
 
+-- ─── Backer Pass: a lost backing earns 48 hours at the backer price ───
+-- When a backing hold is released, its owner gets a one-time code worth the gap between the
+-- retail and backer prices, usable on any winner for 48 hours.
+create or replace function public.orders_backer_pass() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare
+  s public.settings;
+  v_code text;
+begin
+  if new.type <> 'backing' or new.status <> 'released' or old.status = 'released' then return null; end if;
+  select * into s from public.settings where id = true;
+  if s.retail_price <= s.backer_price then return null; end if;
+  v_code := 'PASS-' || new.number;
+  insert into public.discount_codes (code, kind, value, applies_to, max_uses, per_user_limit, owner_id, expires_at, note)
+  values (v_code, 'flat', s.retail_price - s.backer_price, 'retail', 1, 1, new.user_id, now() + interval '48 hours', 'Backer Pass')
+  on conflict (code) do nothing;
+  -- Add the code to the release notice (sent by the orders_change trigger, which fires first: triggers run in name order), or send one.
+  update public.notifications
+     set body = body || ' Your Backer Pass: use code ' || v_code || ' within 48 hours to get any winner at ' || public.inr(s.backer_price) || '.'
+   where user_id = new.user_id and kind = 'order_released' and link = '/orders/' || new.id and dispatched_at is null;
+  if not found then
+    perform public.notify_user(new.user_id, 'backer_pass', 'Your Backer Pass',
+      'Use code ' || v_code || ' within 48 hours to get any winner at ' || public.inr(s.backer_price) || '.', '/shop?collection=new', '{push,email}');
+  end if;
+  return null;
+end $$;
+create trigger orders_pass after update of status on public.orders
+  for each row execute function public.orders_backer_pass();
+
 -- ─── Club promo codes shown in the store ──────────────────────────────
 insert into public.discount_codes (code, kind, value, applies_to, per_user_limit, note) values
   ('SNOOZE10', 'percent', 10, 'retail', 1, '10% off your drop'),

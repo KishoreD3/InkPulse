@@ -104,6 +104,26 @@ begin
 exception when check_violation then null;
 end $$;
 
+-- A released backing hands out a 48-hour Backer Pass.
+do $$
+declare
+  o uuid; n int;
+  d uuid := (select id from public.designs where slug = 'puddle-theory');
+  c public.discount_codes;
+begin
+  insert into public.orders (user_id, type, status, ship_to, subtotal, total, payment_status, gateway, drop_id)
+  values ('eeeeeeee-0000-4000-8000-000000000001', 'backing', 'backed', '{"name":"Riya"}', 899, 899, 'authorized', 'test',
+          (select drop_id from public.designs where id = d))
+  returning id, number into o, n;
+  insert into public.order_items (order_id, design_id, colour, size, qty, unit_price, price_type) values (o, d, 'Washed Black', 'M', 1, 899, 'backer');
+  update public.orders set status = 'released', payment_status = 'released' where id = o;
+  select * into c from public.discount_codes where code = 'PASS-' || n;
+  assert c.owner_id = 'eeeeeeee-0000-4000-8000-000000000001' and c.kind = 'flat' and c.value = 1099 - 899
+     and c.applies_to = 'retail' and c.max_uses = 1 and c.expires_at > now() + interval '47 hours', 'backer pass code';
+  assert exists (select 1 from public.notifications where user_id = 'eeeeeeee-0000-4000-8000-000000000001'
+                  and kind = 'order_released' and body like '%PASS-' || n || '%'), 'release notice carries the pass code';
+end $$;
+
 -- Members only read their own points.
 begin;
 set local role authenticated;

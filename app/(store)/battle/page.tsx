@@ -1,7 +1,14 @@
+import type { Metadata } from 'next';
 import { BattleView } from '@/components/dnd/views/Battle';
-import { BATTLE } from '@/lib/dnd/catalog';
+import { getCatalog } from '@/lib/dnd/load';
 
-export const metadata = { title: `Live battle · ${BATTLE.topic}`, description: 'Vote free or back a design for ₹899. The top 3 print on Friday.' };
+export async function generateMetadata(): Promise<Metadata> {
+  const { battle, prices } = await getCatalog();
+  return {
+    title: battle.live ? `Live battle · ${battle.topic}` : 'The weekly battle',
+    description: `Vote free or back a design for ₹${prices.back}. The top ${battle.winners} print on Friday.`,
+  };
+}
 
 export default function BattlePage() {
   return <BattleView />;

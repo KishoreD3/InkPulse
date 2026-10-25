@@ -1,13 +1,14 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { COLOURS, OPEN_TOPIC, moods, type ColourKey } from '@/lib/dnd/catalog';
-import { dh, submissionsCloseAt } from '@/lib/dnd/cycle';
+import { COLOURS, moods, type ColourKey } from '@/lib/dnd/catalog';
+import { useCatalog } from '@/lib/dnd/catalog-context';
+import { dh } from '@/lib/dnd/cycle';
 import { useNow, useStore, type Check, type Draft } from '@/lib/dnd/store';
 import { Btn, Icon, Logo } from '../ui';
 
 const STEPS = ['Brief', 'Artwork', 'Details', 'Colours', 'Review'];
-const MAX_BYTES = 100 * 1024 * 1024;
+const MAX_BYTES = 50 * 1024 * 1024;
 const blank: Draft = { step: 1, pledge: false, title: '', mood: moods[1].name, story: '', tags: '', colours: ['black'], image: null, fileName: null, checks: null, savedAt: 0 };
 
 /** Reads an image file, checks it against the print spec and returns a small preview for the browser to keep. */
@@ -51,7 +52,25 @@ async function inspect(file: File): Promise<{ image: string; checks: Check[] }> 
 }
 
 export function StudioView() {
-  const { state, hydrated, update, submitDesign, toast } = useStore();
+  const { openTopic } = useCatalog();
+  if (!openTopic) {
+    return (
+      <div className="studio">
+        <header className="studio-top"><Logo /><div /><Link className="link" href="/dashboard">Dashboard</Link></header>
+        <main className="studio-main studio-done">
+          <div className="ok"><Icon name="clock" size={32} /></div>
+          <h1>Submissions are closed.</h1>
+          <p className="muted">A new brief goes up every Monday at 10 AM, open for 10 days. Set a reminder and we’ll nudge you.</p>
+          <div className="row center-row"><Btn v="dark" href="/topics">See the calendar</Btn><Btn v="ghost" href="/">Back to store</Btn></div>
+        </main>
+      </div>
+    );
+  }
+  return <StudioForm topic={openTopic} />;
+}
+
+function StudioForm({ topic: OPEN_TOPIC }: { topic: NonNullable<ReturnType<typeof useCatalog>['openTopic']> }) {
+  const { state, hydrated, update, submitDesign, toast, mode } = useStore();
   const now = useNow(60_000);
   const [d, setD] = useState<Draft>(blank);
   const [busy, setBusy] = useState(false);
@@ -59,6 +78,8 @@ export function StudioView() {
   const [drag, setDrag] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const file = useRef<HTMLInputElement>(null);
+  // The original file stays in memory only; the saved draft keeps a small preview.
+  const original = useRef<File | null>(null);
   const loaded = useRef(false);
 
   useEffect(() => {
@@ -93,10 +114,11 @@ export function StudioView() {
   const onFile = async (f: File | undefined) => {
     if (!f) return;
     if (!['image/png', 'image/jpeg', 'image/svg+xml'].includes(f.type)) { setErr('Upload a PNG, JPG or SVG. (Export PSDs to PNG first.)'); return; }
-    if (f.size > MAX_BYTES) { setErr('That file is over 100 MB.'); return; }
+    if (f.size > MAX_BYTES) { setErr('That file is over 50 MB.'); return; }
     setBusy(true);
     try {
       const r = await inspect(f);
+      original.current = f;
       set({ image: r.image, checks: r.checks, fileName: f.name });
     } catch {
       setErr('We couldn’t read that image. Try exporting it again.');
@@ -105,12 +127,18 @@ export function StudioView() {
     }
   };
 
-  const submit = () => {
+  const submit = async () => {
     if (valid.some((v) => !v)) { setErr('A step above still needs something.'); set({ step: maxStep }); return; }
-    const s = submitDesign({ title: d.title.trim(), mood: d.mood, story: d.story.trim(), tags: d.tags.trim(), colours: d.colours, image: d.image, fileName: d.fileName });
+    if (mode === 'live' && !original.current) { setErr('Your draft kept a preview only. Attach the artwork file again.'); set({ step: 2 }); return; }
+    if (busy) return;
+    setBusy(true);
+    const r = await submitDesign({ title: d.title.trim(), mood: d.mood, story: d.story.trim(), tags: d.tags.trim(), colours: d.colours, image: d.image, fileName: d.fileName }, original.current);
+    setBusy(false);
+    if ('error' in r) { setErr(r.error); return; }
+    original.current = null;
     setD(blank);
-    setDone(s.title);
-    toast('Submitted to Drop 046', 'Curators review every entry. We’ll ping you either way.', { label: 'Dashboard', href: '/dashboard' });
+    setDone(r.submission.title);
+    toast(`Submitted to Drop ${String(OPEN_TOPIC.drop).padStart(3, '0')}`, 'Curators review every entry. We’ll ping you either way.', { label: 'Dashboard', href: '/dashboard' });
   };
 
   const tee = (cls = '') => (
@@ -142,10 +170,10 @@ export function StudioView() {
               <button key={x} disabled={i + 1 > maxStep} aria-current={d.step === i + 1 ? 'step' : undefined} className={d.step === i + 1 ? 'now' : valid[i] && i + 1 < d.step ? 'done' : ''} onClick={() => set({ step: i + 1 })}><b>{valid[i] && i + 1 < d.step ? '✓' : i + 1}</b>{x}</button>
             ))}</aside>
             <main className="studio-main">
-              <div className="deadline"><Icon name="clock" /><b>{OPEN_TOPIC.title} · closes in {now ? dh(submissionsCloseAt(now) - now) : '…'}</b></div>
+              <div className="deadline"><Icon name="clock" /><b>{OPEN_TOPIC.title} · closes in {now ? dh(OPEN_TOPIC.closesAt - now) : '…'}</b></div>
               {d.step === 1 && (
                 <div className="sf"><p className="eyebrow">STEP 1 OF 5</p><h1>Read the brief.<br />Make it yours.</h1>
-                  <div className="brief"><span className="sticker">DROP 0{OPEN_TOPIC.drop}</span><h2>{OPEN_TOPIC.title}</h2><p>{OPEN_TOPIC.brief}</p><b>What we’re looking for</b><ul><li>A strong idea that reads from 2 metres away</li><li>Original work — no fan art, no AI, no third-party IP</li><li>Up to 6 print colours</li></ul></div>
+                  <div className="brief"><span className="sticker">DROP {String(OPEN_TOPIC.drop).padStart(3, '0')}</span><h2>{OPEN_TOPIC.title}</h2><p>{OPEN_TOPIC.brief}</p><b>What we’re looking for</b><ul><li>A strong idea that reads from 2 metres away</li><li>Original work — no fan art, no AI, no third-party IP</li><li>Up to 6 print colours</li></ul></div>
                   <label className="pledge"><input type="checkbox" checked={d.pledge} onChange={(e) => set({ pledge: e.target.checked })} /><span /><p><b>This is my original work.</b><br />I own the rights and didn’t copy anyone. Do not dupe. <Link className="link small" href="/legal/artist-terms">Artist terms</Link></p></label>
                 </div>
               )}
@@ -162,7 +190,7 @@ export function StudioView() {
                       ? <img className="upload-preview" src={d.image} alt="Uploaded artwork" />
                       : <Icon name="upload" size={38} />}
                     <h3>{busy ? 'Checking your file…' : d.fileName ?? 'Drop a PNG, JPG or SVG here'}</h3>
-                    <p>Transparent background · 4500 × 5400 px · max 100 MB</p>
+                    <p>Transparent background · 4500 × 5400 px · max 50 MB</p>
                     <Btn v="outline" onClick={() => file.current?.click()}>{d.image ? 'Replace file' : 'Choose file'}</Btn>
                     <input ref={file} type="file" accept="image/png,image/jpeg,image/svg+xml" hidden onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ''; }} />
                   </div>
@@ -191,7 +219,7 @@ export function StudioView() {
                 <div className="sf"><p className="eyebrow">STEP 5 OF 5</p><h1>One last look.</h1>
                   <div className="review-art">{tee()}<div><h2>{d.title || 'Untitled entry'}</h2><p className="muted">{d.mood} · {d.colours.map((c) => COLOURS.find((x) => x.key === c)?.name).join(', ')}</p><p className="muted small">{d.story}</p>{d.checks?.every((c) => c.ok) ? <b className="green">All checks passed</b> : <b className="warn-text">Passed with warnings</b>}</div></div>
                   <div className="hold-note"><Icon name="shield" /><p>Once submitted, your artwork can’t be edited while curators review it.</p></div>
-                  <Btn v="dark" onClick={submit}>Submit to Drop 0{OPEN_TOPIC.drop} <Icon name="arrow" /></Btn>
+                  <Btn v="dark" onClick={submit} disabled={busy}>{busy ? 'Uploading…' : <>Submit to Drop {String(OPEN_TOPIC.drop).padStart(3, '0')} <Icon name="arrow" /></>}</Btn>
                 </div>
               )}
               {err && <p className="field-error studio-err" role="alert">{err}</p>}

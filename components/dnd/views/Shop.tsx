@@ -1,8 +1,8 @@
 'use client';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
-import { BACK, COLLECTIONS, COLOURS, FITS, RETAIL, SIZES, inr, moodBySlug, moods, winners, type Product } from '@/lib/dnd/catalog';
-import { standings } from '@/lib/dnd/cycle';
+import { COLLECTIONS, COLOURS, FITS, SIZES, inr, moodBySlug, moods, type Product } from '@/lib/dnd/catalog';
+import { useCatalog } from '@/lib/dnd/catalog-context';
 import { useNow, useStore } from '@/lib/dnd/store';
 import { FinalistCard, ProductCard } from '../cards';
 import { Btn, Crumbs, Empty, Icon } from '../ui';
@@ -20,7 +20,10 @@ export function ShopView() {
   const params = useSearchParams();
   const router = useRouter();
   const path = usePathname();
-  const { state } = useStore();
+  const { board: rank } = useStore();
+  const { winners, prices, battle } = useCatalog();
+  const RETAIL = prices.retail;
+  const BACK = prices.back;
   const now = useNow(30_000);
   const [open, setOpen] = useState(false);
   const [shown, setShown] = useState(PAGE);
@@ -58,7 +61,7 @@ export function ShopView() {
     return r;
   })();
 
-  const board = standings(now, state.votes, state.bag.filter((b) => b.kind === 'back').map((b) => b.id));
+  const board = rank(now);
   const liveList = sort === 'newest' ? [...board].reverse() : board;
   const count = live ? board.length : products.length;
   const activeChips: [string, () => void][] = [
@@ -76,7 +79,7 @@ export function ShopView() {
     <div className="page-width shop">
       <Crumbs items={[['Home', '/'], ['Shop', '/shop'], [heading ?? 'All tees']]} />
       <div className="shop-top">
-        <div><h1>Tees that <span className="hl">do not</span> blend in.</h1><p>Original Indian art. Every sale pays the artist 15%.</p></div>
+        <div><h1>Tees that <span className="hl">do not</span> blend in.</h1><p>Original Indian art. Every sale pays the artist {prices.artistPct}%.</p></div>
         <div className="segmented" role="tablist">
           <button role="tab" aria-selected={!live} className={!live ? 'on' : ''} onClick={() => set({ view: null, collection: collection === 'under-999' ? null : collection, mood: moodParam.filter((m) => m !== 'under-999').join(',') || null })}>Winners<b>{inr(RETAIL)}</b></button>
           <button role="tab" aria-selected={live} className={live ? 'on' : ''} onClick={() => set({ view: 'live' })}><i className="live-dot" /> Live finalists<b>{inr(BACK)}</b></button>
@@ -112,7 +115,11 @@ export function ShopView() {
             <div className="chip-line"><b>{count} designs</b>{!live && activeChips.map(([label, remove]) => <button key={label} className="chip" onClick={remove}>{label} ✕</button>)}</div>
             <select value={sort} aria-label="Sort" onChange={(e) => set({ sort: e.target.value === 'popular' ? null : e.target.value })}>{SORTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
           </div>
-          {live ? (
+          {live && !board.length ? (
+            <Empty title="No battle on right now." body={battle.drop ? `Drop ${battle.drop} opens for voting soon. Shop past winners meanwhile.` : 'The next battle opens Monday at 10 AM.'}>
+              <Btn v="outline" onClick={() => set({ view: null })}>Shop winners</Btn>
+            </Empty>
+          ) : live ? (
             <div className="grid3">{liveList.map((f) => <FinalistCard key={f.id} s={f} leader={board[0].live} />)}</div>
           ) : products.length ? (
             <>

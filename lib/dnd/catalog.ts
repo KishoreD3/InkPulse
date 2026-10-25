@@ -1,6 +1,7 @@
-// The DND Club catalogue: winners on sale, this week's finalists, artists, moods and topics.
-// It runs the storefront until the store is wired to Supabase; keep ids stable, they are
-// what the bag, votes, wishlist and orders in the browser refer to.
+// The DND Club catalogue: types shared by every store screen, the fixed option lists
+// (sizes, colours, fits, moods) and the demo catalogue the store runs on when no
+// database is connected. With Supabase configured, lib/dnd/load.ts builds the same
+// shapes from the database. Ids are design slugs, so links work in both modes.
 
 export const BACK = 899;
 export const RETAIL = 1099;
@@ -69,11 +70,14 @@ export const moods: Mood[] = [
 export const moodBySlug = (slug: string | null | undefined) => moods.find((m) => m.slug === slug);
 
 export type Artist = {
+  /** Database id (live mode only). */
+  uuid?: string;
   name: string; slug: string; city: string; wins: number; finalists: number; followers: number;
   image: number; styles: ('Typography' | 'Illustration')[]; tagline: string; bio: string; votes: string; sold: string;
+  photo: string | null; cover: string | null;
 };
 
-export const artists: Artist[] = [
+export const DEMO_ARTISTS: Omit<Artist, 'photo' | 'cover'>[] = [
   { name: 'Nilofer S.', slug: 'nilofer', city: 'Chennai', wins: 4, finalists: 12, followers: 18400, image: 2, styles: ['Typography'], tagline: 'TYPOGRAPHY + CULTURE', bio: 'I draw loud little love letters to the streets, signs and sounds I grew up around.', votes: '86k', sold: '3.8k' },
   { name: 'Meera D.', slug: 'meera', city: 'Kochi', wins: 1, finalists: 3, followers: 4100, image: 1, styles: ['Illustration'], tagline: 'ILLUSTRATION + WEATHER', bio: 'Monsoon kid. I paint clouds, coconut trees and everything that smells like wet earth.', votes: '21k', sold: '640' },
   { name: 'Aarav S.', slug: 'aarav', city: 'Jaipur', wins: 2, finalists: 7, followers: 9800, image: 4, styles: ['Illustration'], tagline: 'FOLK ART + NOISE', bio: 'Rajasthani folk motifs, run through a broken photocopier and a lot of chai.', votes: '48k', sold: '1.9k' },
@@ -83,19 +87,19 @@ export const artists: Artist[] = [
   { name: 'Studio Puli', slug: 'studio-puli', city: 'Chennai', wins: 2, finalists: 8, followers: 10300, image: 7, styles: ['Illustration', 'Typography'], tagline: 'TWO-PERSON STUDIO', bio: 'A tiny studio obsessed with filter coffee, tigers and bold two-colour prints.', votes: '52k', sold: '2.2k' },
   { name: 'Riya K.', slug: 'riya', city: 'Bengaluru', wins: 0, finalists: 2, followers: 2600, image: 0, styles: ['Typography'], tagline: 'SLEEPY TYPE', bio: 'Designer, professional snoozer. Making type that feels like a Sunday morning.', votes: '9k', sold: '210' },
 ];
-export const artistBySlug = (slug: string) => artists.find((a) => a.slug === slug);
-export const artistByName = (name: string) => artists.find((a) => a.name === name);
 const SOUTH = ['Chennai', 'Kochi', 'Madurai', 'Hyderabad', 'Bengaluru'];
 export const isSouth = (a: Artist) => SOUTH.includes(a.city);
 
 export type Product = {
-  id: string; name: string; artist: string; city: string; image: number;
+  id: string; uuid?: string; name: string; artist: string; artistSlug: string; city: string; image: number;
+  /** Model shot, flat-lay, print close-up, lifestyle. */
+  photos: string[];
   badge: string; rating: number; reviews: number; mood: string; care: string;
   fit: Fit; colours: ColourKey[]; collections: string[]; drop: number; topic: string;
   sold: number; story: string; low?: { size: Size; left: number };
 };
 
-export const winners: Product[] = [
+export const DEMO_WINNERS: Omit<Product, 'photos' | 'artistSlug'>[] = [
   { id: 'midnight-auto', name: 'Midnight Auto', artist: 'Nilofer S.', city: 'Chennai', image: 0, badge: 'WINNER · DROP 043', rating: 4.8, reviews: 312, mood: 'Night Owl', care: 'DO NOT DRY-CLEAN', fit: 'Oversized', colours: ['black', 'navy', 'purple'], collections: ['new', 'bestsellers'], drop: 43, topic: 'Future Folklore', sold: 1208, story: 'The auto stand outside Central station at 2 AM: neon, chai steam and a driver who never sleeps.', low: { size: 'M', left: 4 } },
   { id: 'kaapi-futures', name: 'Kaapi Futures', artist: 'Nilofer S.', city: 'Chennai', image: 1, badge: 'BESTSELLER', rating: 4.9, reviews: 268, mood: 'Desi Drip', care: 'DO NOT SPILL', fit: 'Classic Crew', colours: ['cream', 'black'], collections: ['bestsellers'], drop: 41, topic: 'Good Trouble', sold: 874, story: 'A stock ticker for filter coffee. Decoction is up, chicory is volatile, sugar is a hedge.' },
   { id: 'folk-static', name: 'Folk Static', artist: 'Aarav S.', city: 'Jaipur', image: 2, badge: 'WINNER · DROP 042', rating: 4.7, reviews: 144, mood: 'Main Character', care: 'DO NOT DUPE', fit: 'Oversized', colours: ['cream', 'yellow'], collections: ['new'], drop: 42, topic: 'Street Signals', sold: 512, story: 'Phad painting meets a TV with no signal. The heroes are still on screen, just a little fuzzy.' },
@@ -105,15 +109,16 @@ export const winners: Product[] = [
   { id: 'snooze-button', name: 'Snooze Button', artist: 'Riya K.', city: 'Bengaluru', image: 6, badge: 'NEW', rating: 4.7, reviews: 61, mood: 'Snooze Mode', care: 'DO NOT WAKE', fit: 'Oversized', colours: ['purple', 'navy', 'cream'], collections: ['new'], drop: 43, topic: 'Future Folklore', sold: 198, story: 'Five more minutes, rendered in very serious type. For people who negotiate with alarms.' },
   { id: 'filter-club', name: 'Filter Club', artist: 'Studio Puli', city: 'Chennai', image: 7, badge: 'BACK IN STOCK', rating: 4.8, reviews: 190, mood: 'Desi Drip', care: 'DO NOT DILUTE', fit: 'Boxy Crop', colours: ['cream', 'black', 'yellow'], collections: ['back-in-stock', 'bestsellers'], drop: 39, topic: 'Morning Rituals', sold: 655, story: 'A members-only crest for people who take their filter coffee strong and their mornings slow.' },
 ];
-export const productById = (id: string) => winners.find((p) => p.id === id);
 
 export type Finalist = {
-  id: string; name: string; artist: string; city: string; votes: number; backers: number; image: number;
-  /** Votes per hour, so the leaderboard moves while the battle is live. */
+  id: string; uuid?: string; name: string; artist: string; artistSlug: string; city: string; votes: number; backers: number; image: number;
+  /** Demo only: votes per hour, so the leaderboard moves while the battle is live. Zero with real votes. */
   rate: number; story: string;
+  /** Card mockup, and the gallery on its page. */
+  card: string; photos: string[]; colours: ColourKey[];
 };
 
-export const finalists: Finalist[] = [
+export const DEMO_FINALISTS: Omit<Finalist, 'card' | 'photos' | 'artistSlug' | 'colours'>[] = [
   { id: 'cloudburst-club', name: 'Cloudburst Club', artist: 'Meera D.', city: 'Kochi', votes: 4382, backers: 612, image: 1, rate: 9, story: 'A members-only club for people who run outside when it starts pouring.' },
   { id: 'puddle-theory', name: 'Puddle Theory', artist: 'Aman Narang', city: 'Delhi', votes: 4106, backers: 540, image: 3, rate: 10, story: 'Every puddle is a portal. Some lead to school, most lead to trouble.' },
   { id: 'after-the-rain', name: 'After the Rain', artist: 'Neel Bose', city: 'Kolkata', votes: 3840, backers: 498, image: 5, rate: 6, story: 'Tram lines, wet rooftops and the first hot jhalmuri after a storm.' },
@@ -123,22 +128,7 @@ export const finalists: Finalist[] = [
   { id: 'petrichor', name: 'Petrichor', artist: 'Anushka T.', city: 'Pune', votes: 2702, backers: 276, image: 2, rate: 4, story: 'A botanical study of the smell of first rain, if smells had leaves.' },
   { id: 'wet-streets', name: 'Wet Streets', artist: 'Joel M.', city: 'Shillong', votes: 2415, backers: 230, image: 7, rate: 3, story: 'Hill-town streets that turn into mirrors for an hour every evening.' },
 ];
-export const finalistById = (id: string) => finalists.find((f) => f.id === id);
-export const finalistGallery = (id: string) =>
-  id === 'puddle-theory' ? [1, 2, 3, 4].map((n) => `/dnd/puddle-theory-${n}.jpg`) : [img.finalist(id)];
 
-/** The battle that is live right now, and the topics around it. */
-export const BATTLE = { drop: 44, topic: 'Monsoon Mood', brief: 'Design the feeling between the first cloud and the last chai.', winners: 3 };
-export const OPEN_TOPIC = {
-  drop: 46, title: 'Beautiful Chaos', entries: 73, maxEntries: 2,
-  brief: 'Find the systems inside the mess: traffic, tangled wires, family group chats, local markets, a desk at 2 AM.',
-};
-
-export const archive = [
-  { drop: 42, title: 'Street Signals', votes: 24891 },
-  { drop: 41, title: 'Good Trouble', votes: 23657 },
-  { drop: 40, title: 'Home Frequency', votes: 22423 },
-];
 
 export const reviews = [
   { quote: 'Exactly the oversized fit I wanted. The print is even better in person.', name: 'Aarushi · Pune' },
@@ -148,8 +138,45 @@ export const reviews = [
 
 export const SIZE_CHART = [['XS', '38', '27', '17'], ['S', '40', '28', '18'], ['M', '42', '29', '19'], ['L', '44', '30', '20'], ['XL', '46', '31', '21'], ['2XL', '48', '32', '22'], ['3XL', '50', '33', '23']];
 
-/** Coupon codes the bag accepts. */
+/** Coupon codes the demo bag accepts (live mode checks codes on the server). */
 export const COUPONS: Record<string, { pct: number; label: string }> = {
   SNOOZE10: { pct: 10, label: '10% off your drop' },
   NIGHTOWL15: { pct: 15, label: '15% off for night owls' },
 };
+
+/* ───────── the catalogue every screen reads ───────── */
+
+export type Prices = { back: number; retail: number; mrp: number; artistPct: number; artistShare: number };
+export const DEFAULT_PRICES: Prices = { back: BACK, retail: RETAIL, mrp: MRP, artistPct: ARTIST_PCT, artistShare: ARTIST_SHARE };
+
+/** This week's battle. `live` is false between battles (finalists is then empty). */
+export type Battle = { uuid?: string; drop: number; topic: string; brief: string; winners: number; opensAt: number; closesAt: number; printsAt: number; live: boolean };
+/** The topic taking submissions, if any. */
+export type OpenTopic = { uuid?: string; drop: number; title: string; brief: string; prompts: string[]; entries: number; maxEntries: number; closesAt: number };
+export type Stage = { drop: number; title: string; phase: 'submissions' | 'review' | 'voting' | 'printing'; at: number | null };
+export type ArchiveEntry = { drop: number; title: string; votes: number; thumbs: string[] };
+
+export type Catalog = {
+  /** demo: built-in sample data, state in the browser. live: Supabase. */
+  mode: 'demo' | 'live';
+  prices: Prices;
+  winners: Product[];
+  finalists: Finalist[];
+  artists: Artist[];
+  battle: Battle;
+  openTopic: OpenTopic | null;
+  stages: Stage[];
+  archive: ArchiveEntry[];
+  /** Voting needs a verified phone number (live mode). */
+  requirePhone: boolean;
+};
+
+export const lookups = (c: Pick<Catalog, 'winners' | 'finalists' | 'artists'>) => ({
+  productById: (id: string) => c.winners.find((p) => p.id === id),
+  finalistById: (id: string) => c.finalists.find((f) => f.id === id),
+  artistBySlug: (slug: string) => c.artists.find((a) => a.slug === slug),
+  artistByName: (name: string) => c.artists.find((a) => a.name === name),
+});
+
+/** Placeholder for a missing photo: the page shows the tint behind it. */
+export const NO_PHOTO = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';

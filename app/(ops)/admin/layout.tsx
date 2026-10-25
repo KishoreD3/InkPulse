@@ -7,6 +7,7 @@ const NAV = [
   ['/admin', 'Dashboard'],
   ['/admin/submissions', 'Submissions'],
   ['/admin/drops', 'Drops'],
+  ['/admin/listings', 'Store listings'],
   ['/admin/orders', 'Orders & print'],
   ['/admin/returns', 'Returns'],
   ['/admin/codes', 'Codes & referrals'],

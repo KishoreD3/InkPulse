@@ -1,11 +1,12 @@
 'use server';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { z } from 'zod';
 import { currentAdmin } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/server';
 import { printDueDrops, settleBackings, tick } from '@/lib/jobs';
 import { refundPayment } from '@/lib/payments/razorpay';
 import { dispatchPending } from '@/lib/notify/dispatch';
+import { CATALOG_TAG } from '@/lib/dnd/load';
 
 type Result = { ok: true; message?: string } | { ok: false; error: string };
 
@@ -15,8 +16,10 @@ async function guard() {
   return { session: admin, db: createAdminClient() };
 }
 
+/** Logs an admin change. Every logged change can affect the shop, so the store's catalogue is read fresh. */
 async function audit(actor: string, action: string, target: string, detail?: object) {
   await createAdminClient().from('audit_log').insert({ actor_id: actor, action, target, detail: detail ?? null });
+  revalidateTag(CATALOG_TAG);
 }
 
 // ─── Scheduler ───────────────────────────────────────────────────────
@@ -353,4 +356,38 @@ export async function saveTopic(_: unknown, form: FormData): Promise<Result> {
   await audit(session.user.id, 'topic.save', dropId, { title });
   revalidatePath('/admin/drops'); revalidatePath('/topics');
   return { ok: true, message: drop.topic_announced_at ? 'Topic updated (it was already announced).' : 'Topic saved. It goes public at its reveal time.' };
+}
+
+// ─── Store listings: how a design looks in the shop ──────────────────
+const FIT_NAMES = ['Oversized', 'Classic Crew', 'Boxy Crop', 'Relaxed Fit'] as const;
+const listingSchema = z.object({
+  id: z.string().uuid(),
+  mood: z.string().trim().max(40).optional(),
+  fit: z.enum(FIT_NAMES),
+  care: z.string().trim().max(30).optional(),
+  badge: z.string().trim().max(30).optional(),
+  mockup: z.string().trim().url().or(z.literal('')).optional(),
+  photos: z.string().optional().transform((s) => (s ?? '').split('\n').map((x) => x.trim()).filter(Boolean)),
+});
+
+/** Saves the shop details for a design. Photos are uploaded from the browser first; this stores their links. */
+export async function saveListing(_: unknown, form: FormData): Promise<Result> {
+  const { session, db } = await guard();
+  const parsed = listingSchema.safeParse({
+    id: form.get('id'), mood: form.get('mood') || undefined, fit: form.get('fit'), care: form.get('care') || undefined,
+    badge: form.get('badge') || undefined, mockup: form.get('mockup') ?? '', photos: form.get('photos') ?? '',
+  });
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+  const { id, mood, fit, care, badge, mockup, photos } = parsed.data;
+  if (photos.some((u) => !/^https:\/\//.test(u) && !u.startsWith('/'))) return { ok: false, error: 'Photo links must start with https:// or /.' };
+  const collections = form.getAll('collections').map(String).filter((c) => ['new', 'bestsellers', 'back-in-stock', 'under-999'].includes(c));
+
+  const { error } = await db.from('designs').update({
+    mood: mood || null, fit, care_label: care || null, badge: badge || null, mockup_url: mockup || null,
+    photo_urls: photos.slice(0, 8), collections,
+  }).eq('id', id);
+  if (error) return { ok: false, error: error.message };
+  await audit(session.user.id, 'design.listing', id, { photos: photos.length });
+  revalidatePath('/admin/listings');
+  return { ok: true, message: 'Listing saved. The shop updates within a minute.' };
 }

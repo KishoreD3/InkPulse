@@ -2,8 +2,9 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { BACK, inr } from '@/lib/dnd/catalog';
-import { quote, useStore, type Address, type Contact } from '@/lib/dnd/store';
+import { inr } from '@/lib/dnd/catalog';
+import { useCatalog } from '@/lib/dnd/catalog-context';
+import { useStore, type Address, type Contact } from '@/lib/dnd/store';
 import { Btn, Empty, Icon } from '../ui';
 import { BagItem } from './Bag';
 
@@ -53,9 +54,11 @@ export function Field({ label, error, children }: { label: string; error?: strin
 }
 
 export function CheckoutView() {
-  const { state, hydrated, placeOrder } = useStore();
+  const { state, hydrated, placeOrder, quote, mode, session } = useStore();
+  const { prices, battle } = useCatalog();
   const router = useRouter();
-  const q = quote(state);
+  const q = quote();
+  const [orderErr, setOrderErr] = useState('');
   const [contact, setContact] = useState<Contact>(state.contact);
   const [address, setAddress] = useState<Address>(state.address);
   const [edit, setEdit] = useState<'contact' | 'address' | null>(null);
@@ -103,12 +106,15 @@ export function CheckoutView() {
     setTried(true);
     if (!detailsOk) { setEdit(Object.keys(cErr).length ? 'contact' : 'address'); return; }
     if (!payOk) return;
+    if (mode === 'live' && !session) { router.push('/signin?next=/checkout'); return; }
     setBusy(true);
+    setOrderErr('');
     const payment = pay === 'upi' ? `UPI · ${vpa.trim()}` : `Card · •••• ${card.number.replace(/\D/g, '').slice(-4)}`;
-    window.setTimeout(() => {
-      const order = placeOrder({ contact, address, payment });
-      router.push(`/orders/${order.id}?placed=1`);
-    }, 1200);
+    window.setTimeout(async () => {
+      const r = await placeOrder({ contact, address, payment });
+      if ('error' in r) { setOrderErr(r.error); setBusy(false); return; }
+      router.push(`/orders/${r.order.id}?placed=1`);
+    }, mode === 'demo' ? 1200 : 0);
   };
 
   const payLabel = q.payNow > 0
@@ -173,7 +179,7 @@ export function CheckoutView() {
                 <Field label="Name on card" error={tried ? cardErr.name || undefined : undefined}><input autoComplete="cc-name" value={card.name} onChange={(e) => setCard({ ...card, name: e.target.value })} /></Field>
               </div>
             )}
-            {hasBacking && <div className="hold-note"><Icon name="moon" /><p><b>About your {inr(q.holds)} hold</b><br />We authorise a hold now and charge it only if your backed design{backingNames.length > 1 ? 's finish' : ' finishes'} top 3. Otherwise it’s released the same night.</p></div>}
+            {hasBacking && <div className="hold-note"><Icon name="moon" /><p><b>About your {inr(q.holds)} hold</b><br />We authorise a hold now and charge it only if your backed design{backingNames.length > 1 ? 's finish' : ' finishes'} top {battle.winners}. Otherwise it’s released the same night.</p></div>}
             <p className="test-note">Test mode: no real payment is taken. Live Razorpay checkout switches on when the store is connected to your account.</p>
           </section>
         </div>
@@ -184,7 +190,8 @@ export function CheckoutView() {
           {q.discount > 0 && <p><span>{state.coupon}</span><b className="green">− {inr(q.discount)}</b></p>}
           {q.reward > 0 && <p><span>Club reward</span><b className="green">− {inr(q.reward)}</b></p>}
           <p><span>Pay today</span><b>{inr(q.payNow)}</b></p>
-          {hasBacking && <p className="muted"><span>Authorise hold</span><b>{inr(q.holds || BACK)}</b></p>}
+          {hasBacking && <p className="muted"><span>Authorise hold</span><b>{inr(q.holds || prices.back)}</b></p>}
+          {orderErr && <p className="field-error" role="alert">{orderErr}</p>}
           <Btn v="dark" onClick={submit} disabled={busy}>{busy ? 'Processing…' : <>{payLabel} <Icon name="arrow" /></>}</Btn>
           <small className="secure">By continuing, you agree to our <Link href="/legal/terms">backing & payment terms</Link>.</small>
         </aside>

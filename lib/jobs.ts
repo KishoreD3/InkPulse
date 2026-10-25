@@ -4,6 +4,7 @@ import { capturePayment, releasePayment } from '@/lib/payments/razorpay';
 import { submitBatch, type PrintLine } from '@/lib/print';
 import { dispatchPending } from '@/lib/notify/dispatch';
 import type { Colourway } from '@/lib/types';
+import { printTestOrders } from '@/lib/payments/mode';
 
 /**
  * The weekly heartbeat. Safe to run as often as you like (every 15 min in vercel.json):
@@ -37,9 +38,9 @@ export async function tick() {
 export async function settleBackings() {
   const admin = createAdminClient();
   const { data } = await admin.from('orders')
-    .select('id, total, gateway_payment_id, items:order_items(design:designs(status))')
+    .select('id, total, gateway, gateway_payment_id, items:order_items(design:designs(status))')
     .eq('type', 'backing').eq('status', 'backed').eq('payment_status', 'authorized').limit(500);
-  const orders = (data ?? []) as unknown as { id: string; total: number; gateway_payment_id: string | null; items: { design: { status: string } | null }[] }[];
+  const orders = (data ?? []) as unknown as { id: string; total: number; gateway: string; gateway_payment_id: string | null; items: { design: { status: string } | null }[] }[];
   let captured = 0, released = 0, failed = 0;
 
   for (const o of orders) {
@@ -47,13 +48,15 @@ export async function settleBackings() {
     if (status !== 'won' && status !== 'lost') continue; // drop still live
     if (!o.gateway_payment_id) continue;
     try {
+      // Test orders have no gateway: only their status moves.
+      const test = o.gateway === 'test';
       if (status === 'won') {
-        await capturePayment(o.gateway_payment_id, o.total);
+        if (!test) await capturePayment(o.gateway_payment_id, o.total);
         await admin.from('orders').update({ status: 'won', payment_status: 'captured', captured_at: new Date().toISOString() })
           .eq('id', o.id).eq('status', 'backed');
         captured++;
       } else {
-        await releasePayment(o.gateway_payment_id);
+        if (!test) await releasePayment(o.gateway_payment_id);
         await admin.from('orders').update({ status: 'released', payment_status: 'released', released_at: new Date().toISOString() })
           .eq('id', o.id).eq('status', 'backed');
         released++;
@@ -95,9 +98,12 @@ export async function printDueDrops(force = false) {
     if ((count ?? 0) > 0) return { skipped: `drop ${d.number} still settling` };
   }
 
-  const { data: orders } = await admin.from('orders')
+  let query = admin.from('orders')
     .select('id, number, ship_to, items:order_items(colour, size, qty, design:designs(slug, name, colours, art_front_url))')
     .in('status', ['won', 'paid']).is('print_batch_id', null).limit(2000);
+  // Test-mode orders were never paid for: keep them away from the printer unless asked.
+  if (!printTestOrders()) query = query.neq('gateway', 'test');
+  const { data: orders } = await query;
   const rows = (orders ?? []) as unknown as {
     id: string; number: number; ship_to: Record<string, string | null>;
     items: { colour: string; size: string; qty: number; design: { slug: string; name: string; colours: Colourway[]; art_front_url: string } }[];

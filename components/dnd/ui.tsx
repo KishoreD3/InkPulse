@@ -1,7 +1,8 @@
 'use client';
 import Link from 'next/link';
-import { tints } from '@/lib/dnd/catalog';
-import { hms, votingClosesAt } from '@/lib/dnd/cycle';
+import { NO_PHOTO, tints } from '@/lib/dnd/catalog';
+import { useCatalog } from '@/lib/dnd/catalog-context';
+import { hms } from '@/lib/dnd/cycle';
 import { useNow } from '@/lib/dnd/store';
 
 export type IconName = 'search' | 'heart' | 'bag' | 'user' | 'home' | 'zap' | 'plus' | 'grid' | 'arrow' | 'check' | 'clock' |
@@ -52,11 +53,11 @@ export function CareTag({ text, tilt = -3 }: { text: string; tilt?: number }) {
   return <span className="care-tag" style={{ transform: `rotate(${tilt}deg)` }}><i>◯ △ ▢</i>{text}</span>;
 }
 
-export function Photo({ src, alt, className = '', tint = 0, eager = false }: { src: string; alt: string; className?: string; tint?: number; eager?: boolean }) {
+export function Photo({ src, alt, className = '', tint = 0, eager = false }: { src: string | null | undefined; alt: string; className?: string; tint?: number; eager?: boolean }) {
   return (
     <div className={`photo ${className}`} style={{ background: tints[tint % tints.length] }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt={alt} loading={eager ? 'eager' : 'lazy'} />
+      <img src={src || NO_PHOTO} alt={alt} loading={eager ? 'eager' : 'lazy'} />
     </div>
   );
 }
@@ -83,8 +84,9 @@ export function SectionHead({ eyebrow, title, action, href, light }: { eyebrow?:
 /** Live countdown to `to` (defaults to this week's voting lock). */
 export function Countdown({ to }: { to?: number }) {
   const now = useNow(1000);
+  const { battle } = useCatalog();
   if (now == null) return <span className="tabular">--:--:--</span>;
-  return <span className="tabular" suppressHydrationWarning>{hms((to ?? votingClosesAt(now)) - now)}</span>;
+  return <span className="tabular" suppressHydrationWarning>{hms((to ?? battle.closesAt) - now)}</span>;
 }
 
 export function Empty({ emoji = '🌙', title, body, children }: { emoji?: string; title: string; body?: string; children?: React.ReactNode }) {

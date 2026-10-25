@@ -1,5 +1,5 @@
 // The weekly clock: voting opens Monday 10 AM IST, locks Thursday 9 PM IST, the top 3 print Friday.
-import { BATTLE, finalists, type Finalist } from './catalog';
+import type { Catalog, Finalist } from './catalog';
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
@@ -22,27 +22,32 @@ export const printDay = (now = Date.now()) => votingClosesAt(now) + DAY - 9 * HO
 export const submissionsCloseAt = (now = Date.now()) => votingClosesAt(now) + 7 * DAY;
 
 /** Hours into the battle; null (before the page has mounted) means the published counts. */
-const battleHours = (now: number | null) => (now == null ? 0 : Math.max(0, (now - votingOpenedAt(now)) / HOUR));
-
-export function liveVotes(f: Finalist, now: number | null, mine = false) {
-  const hours = battleHours(now);
-  return f.votes + Math.floor(f.rate * hours) + (mine ? 1 : 0);
-}
-export function liveBackers(f: Finalist, now: number | null, backedByMe = false) {
-  const hours = battleHours(now);
-  return f.backers + Math.floor(f.rate * hours * 0.12) + (backedByMe ? 1 : 0);
-}
+const battleHours = (now: number | null, opensAt: number) => (now == null ? 0 : Math.max(0, (now - opensAt) / HOUR));
 
 export type Standing = Finalist & { live: number; backersLive: number; rank: number };
 
-/** Finalists ranked by live votes, including the visitor's own votes and backings. */
-export function standings(now: number | null, myVotes: string[], myBackings: string[] = []): Standing[] {
-  return finalists
-    .map((f) => ({ ...f, live: liveVotes(f, now, myVotes.includes(f.id)), backersLive: liveBackers(f, now, myBackings.includes(f.id)) }))
+/**
+ * Finalists ranked by votes, including the visitor's own vote.
+ * `counted` lists designs whose server count already includes this visitor's vote (live mode),
+ * so a vote is never counted twice and a withdrawn one comes off straight away.
+ */
+export function standings(
+  cat: Pick<Catalog, 'finalists' | 'battle' | 'mode'>, now: number | null, myVotes: string[], myBackings: string[] = [], counted: string[] = [],
+): Standing[] {
+  const hours = battleHours(now, cat.battle.opensAt);
+  return cat.finalists
+    .map((f) => {
+      const mine = myVotes.includes(f.id) ? 1 : 0;
+      const already = counted.includes(f.id) ? 1 : 0;
+      const live = f.votes + Math.floor(f.rate * hours) + mine - already;
+      const backersLive = cat.mode === 'demo'
+        ? f.backers + Math.floor(f.rate * hours * 0.12) + (myBackings.includes(f.id) ? 1 : 0)
+        : f.backers;
+      return { ...f, live, backersLive };
+    })
     .sort((a, b) => b.live - a.live)
     .map((f, i) => ({ ...f, rank: i + 1 }));
 }
-export const inPrintZone = (s: Standing) => s.rank <= BATTLE.winners;
 
 export function hms(ms: number) {
   const s = Math.max(0, Math.floor(ms / 1000));
