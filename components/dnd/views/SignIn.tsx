@@ -2,12 +2,13 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { claimReferral } from '@/app/actions/growth';
+import type { SignInProviders } from '@/lib/auth-providers';
 import { getBrowserClient } from '@/lib/supabase/client';
 import { Btn, Empty, Icon } from '../ui';
 import { Field } from './Checkout';
 
 /** Phone OTP (can vote straight away), Google, or an email magic link. */
-export function SignInView({ next, error: initial, configured }: { next: string; error: string | null; configured: boolean }) {
+export function SignInView({ next, error: initial, configured, providers }: { next: string; error: string | null; configured: boolean; providers: SignInProviders }) {
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [step, setStep] = useState<'phone' | 'code'>('phone');
@@ -64,9 +65,9 @@ export function SignInView({ next, error: initial, configured }: { next: string;
 
   return (
     <div className="page-width signin">
-      <div className="page-title"><p className="eyebrow">MEMBERS ONLY · NO SPAM, EVER</p><h1>Join the club.</h1><p className="muted">Vote, back designs and follow artists. One person, one vote, so voting needs a verified Indian mobile.</p></div>
+      <div className="page-title"><p className="eyebrow">MEMBERS ONLY · NO SPAM, EVER</p><h1>Join the club.</h1><p className="muted">Vote, back designs and follow artists.{providers.phone && ' One person, one vote, so voting needs a verified Indian mobile.'}</p></div>
       <div className="signin-grid">
-        <section className="co-card">
+        {providers.phone && <section className="co-card">
           <h2>Mobile number <span className="sticker">CAN VOTE</span></h2>
           {step === 'phone' ? (
             <form onSubmit={sendCode} className="signin-form">
@@ -80,15 +81,15 @@ export function SignInView({ next, error: initial, configured }: { next: string;
               <button type="button" className="link small" onClick={() => { setStep('phone'); setCode(''); }}>Change number</button>
             </form>
           )}
-        </section>
+        </section>}
         <section className="co-card">
-          <h2>Or use</h2>
-          <Btn v="outline" onClick={google} disabled={busy === 'google'}>{busy === 'google' ? 'Opening Google…' : 'Continue with Google'}</Btn>
-          <form onSubmit={magic} className="signin-form">
+          <h2>{providers.phone ? 'Or use' : 'Sign in'}</h2>
+          {providers.google && <Btn v="outline" onClick={google} disabled={busy === 'google'}>{busy === 'google' ? 'Opening Google…' : 'Continue with Google'}</Btn>}
+          {providers.email && <form onSubmit={magic} className="signin-form">
             <Field label="Email magic link"><input type="email" autoComplete="email" value={email} onChange={(e) => { setEmail(e.target.value); setEmailSent(false); }} required /></Field>
             <Btn v="outline" type="submit" disabled={busy === 'email' || emailSent}>{emailSent ? 'Link sent · check your inbox' : busy === 'email' ? 'Sending…' : 'Email me a link'}</Btn>
-          </form>
-          <p className="muted small">Signed in with Google or email? Add a mobile number in your account before your first vote.</p>
+          </form>}
+          {providers.phone && <p className="muted small">Signed in with Google or email? Add a mobile number in your account before your first vote.</p>}
         </section>
       </div>
       {error && <p className="field-error center" role="alert">{error}</p>}
