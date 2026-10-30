@@ -95,6 +95,10 @@ cp .env.example .env.local
    - **Google**: enable, add OAuth client ID/secret.
    - **Email**: magic link on.
    - **URL configuration**: Site URL = your domain; add `https://YOUR-DOMAIN/auth/callback` (and `http://localhost:3000/auth/callback`) to redirect URLs.
+   - **Email templates** (Auth → Emails → Templates): in both **Magic link** and **Confirm signup**, make the link
+     `<a href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=email">Sign in</a>`
+     so the link works in any browser or device, not only the one that asked for it.
+   - **SMTP** (Auth → Emails → SMTP Settings): Supabase's built-in mailer sends only a couple of emails an hour. Use Resend (`smtp.resend.com`, port 465, user `resend`, your API key as the password), then raise the email limit under Auth → Rate Limits.
 6. **Make yourself admin**: set `ADMIN_EMAILS=you@example.com` in Vercel (applied on the next deploy), or after signing in once:
    ```sql
    update public.profiles set is_admin = true where handle = 'your_handle';
