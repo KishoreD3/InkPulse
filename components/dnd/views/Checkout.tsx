@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { inr } from '@/lib/dnd/catalog';
 import { useCatalog } from '@/lib/dnd/catalog-context';
 import { useStore, type Address, type Contact } from '@/lib/dnd/store';
@@ -70,14 +70,15 @@ export function CheckoutView() {
   const [tried, setTried] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  // The saved contact and address arrive from the server just after hydration (on a direct visit or reload),
+  // so keep copying them in until the shopper types something; after that their edits stay in the form.
+  const typed = useRef(false);
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || typed.current) return;
     setContact(state.contact);
     setAddress(state.address);
     setVpa(state.upi);
-    // Only on hydration: later edits stay in the form.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated]);
+  }, [hydrated, state.contact, state.address, state.upi]);
 
   if (!hydrated) return <div className="page-width checkout"><div className="skeleton" /></div>;
   if (!state.bag.length && !busy) {
@@ -122,7 +123,7 @@ export function CheckoutView() {
     : `Authorise ${inr(q.holds)} hold`;
 
   return (
-    <div className="page-width checkout">
+    <div className="page-width checkout" onInputCapture={() => { typed.current = true; }}>
       <Link className="link" href="/bag">← Back to bag</Link>
       <div className="checkout-grid">
         <div>

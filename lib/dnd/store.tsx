@@ -365,7 +365,7 @@ export function StoreProvider({ session = null, children }: { session?: StoreSes
       setState((x) => ({ ...x, votes: on ? x.votes.filter((v) => v !== id) : [...x.votes, id] }));
       const code = Object.keys(VOTE_ERRORS).find((k) => error.message.includes(k));
       toast('Vote not counted', code ? VOTE_ERRORS[code] : 'Something went wrong. Try again.',
-        code === 'phone_not_verified' ? { label: 'Verify phone', href: '/account?tab=overview#phone' } : undefined);
+        code === 'phone_not_verified' ? { label: 'Verify phone', href: '/account?tab=payments' } : undefined);
       return;
     }
     catRef.current.patchCounts(id, data as number);
