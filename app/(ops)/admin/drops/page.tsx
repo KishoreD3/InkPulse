@@ -48,6 +48,11 @@ export default async function DropsAdmin() {
         </section>
       )}
 
+      {list.length === 0 && (
+        <p className="card-flat p-6">
+          No drops yet. The daily scheduler keeps the next two drops ready, so if this stays empty it isn&apos;t running: check that <code>CRON_SECRET</code> is set in Vercel. <b>Ensure next drop exists</b> creates them now.
+        </p>
+      )}
       {list.map((d) => {
         const lineup = ready.filter((r) => r.drop_id === d.id).length;
         return (
