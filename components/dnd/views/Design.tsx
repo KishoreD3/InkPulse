@@ -94,7 +94,7 @@ export function DesignView({ id }: { id: string }) {
       ['Shipping & exchanges', 'Winners print on Friday and ship in 5–7 days. Free shipping across India. One free size exchange within 7 days of delivery.'],
     ]
     : [
-      ['Product details', `${product!.story} Winner of Drop ${pad(product!.drop)} · ${product!.topic}. ${product!.fit} fit.`],
+      ['Product details', product!.drop ? `${product!.story} Winner of Drop ${pad(product!.drop)} · ${product!.topic}. ${product!.fit} fit.` : `${product!.story} A DND Studio original. ${product!.fit} fit.`],
       ['Fabric & fit', '240 GSM combed cotton, pre-shrunk and bio-washed. Relaxed unisex fit, true to size. Printed to order in Tamil Nadu. Care: cold wash inside out, do not dry-clean, do not disturb.'],
       ['Artist story', artist ? `${artist.bio} ${artist.name} earns ${inr(ARTIST_SHARE)} from every tee sold, forever.` : `${artistName} earns ${inr(ARTIST_SHARE)} from every tee sold.`],
       ['Shipping & exchanges', 'Printed to order and shipped in 5–7 days. Free shipping across India. One free size exchange within 7 days of delivery. No COD.'],
@@ -119,7 +119,7 @@ export function DesignView({ id }: { id: string }) {
           )}
         </div>
         <div className="pdp-info">
-          <p className={`pdp-tag ${live ? 'live' : ''}`}>{live ? <><i className="live-dot" /> LIVE FINALIST · RANK #{me?.rank} · {battle.topic.toUpperCase()}</> : `COMMUNITY WINNER · DROP ${pad(product!.drop)} · ${product!.topic.toUpperCase()}`}</p>
+          <p className={`pdp-tag ${live ? 'live' : ''}`}>{live ? <><i className="live-dot" /> LIVE FINALIST · RANK #{me?.rank} · {battle.topic.toUpperCase()}</> : product!.drop ? `COMMUNITY WINNER · DROP ${pad(product!.drop)} · ${product!.topic.toUpperCase()}` : 'DND STUDIO ORIGINAL'}</p>
           <h1>{name}</h1>
           <ArtistLink name={artistName} className="artist-link" />
           {live && me ? (

@@ -85,7 +85,7 @@ async function fetchLive(): Promise<Catalog> {
     .map((d, i) => ({
       id: d.slug, uuid: d.id, name: d.name, artist: d.artist_name, artistSlug: d.artist_handle, city: d.artist_city ?? '', image: i % 8,
       photos: d.photo_urls.length ? d.photo_urls : [d.mockup_url ?? d.art_front_url],
-      badge: d.badge ?? (d.final_rank === 1 && d.drop_number ? `WINNER · DROP ${pad(d.drop_number)}` : 'WINNER'),
+      badge: d.badge ?? (!d.drop_number ? 'DND STUDIO' : d.final_rank === 1 ? `WINNER · DROP ${pad(d.drop_number)}` : 'WINNER'),
       rating: Number(d.rating ?? 0), reviews: d.reviews, mood: d.mood ?? '', care: d.care_label ?? 'DO NOT DISTURB',
       fit: d.fit, colours: colourKeys(d.colours), collections: collectionsOf(d), drop: d.drop_number ?? 0, topic: d.topic ?? 'Open theme',
       sold: d.sold, story: d.story ?? '',
