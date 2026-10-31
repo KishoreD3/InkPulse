@@ -106,9 +106,14 @@ export async function forceDropStep(_: unknown, form: FormData): Promise<Result>
   const now = new Date();
   try {
     if (step === 'open') {
-      const { data: d } = await db.from('drops').select('locks_at').eq('id', id).single();
+      const { data: d } = await db.from('drops').select('locks_at, topic_at, submissions_close_at').eq('id', id).single();
       if (!d || new Date(d.locks_at) <= now) return { ok: false, error: 'Lock time is already past — edit the drop dates first.' };
-      await db.from('drops').update({ opens_at: now.toISOString() }).eq('id', id).eq('status', 'scheduled');
+      // Opening early also ends submissions now (the drop's dates must stay in order: topic < close <= open).
+      const iso = now.toISOString();
+      const early = new Date(Math.min(new Date(d.topic_at).getTime(), now.getTime() - 60_000)).toISOString();
+      const close = new Date(d.submissions_close_at) > now ? iso : d.submissions_close_at;
+      const { error: moveErr } = await db.from('drops').update({ topic_at: early, submissions_close_at: close, opens_at: iso }).eq('id', id).eq('status', 'scheduled');
+      if (moveErr) return { ok: false, error: moveErr.message };
       const { error } = await db.rpc('open_due_drops');
       if (error) return { ok: false, error: error.message };
     } else if (step === 'lock') {
