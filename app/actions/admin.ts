@@ -7,6 +7,9 @@ import { printDueDrops, settleBackings, tick } from '@/lib/jobs';
 import { refundPayment } from '@/lib/payments/razorpay';
 import { dispatchPending } from '@/lib/notify/dispatch';
 import { CATALOG_TAG } from '@/lib/dnd/load';
+import { COLOURS, moods } from '@/lib/dnd/catalog';
+import { slugify } from '@/lib/format';
+import crypto from 'node:crypto';
 
 type Result = { ok: true; message?: string } | { ok: false; error: string };
 
@@ -395,4 +398,49 @@ export async function saveListing(_: unknown, form: FormData): Promise<Result> {
   await audit(session.user.id, 'design.listing', id, { photos: photos.length });
   revalidatePath('/admin/listings');
   return { ok: true, message: 'Listing saved. The shop updates within a minute.' };
+}
+
+// ─── House tees: sold straight away, without a battle ────────────────
+const houseSchema = z.object({
+  artistId: z.string().uuid('Pick who the tee is credited to'),
+  name: z.string().trim().min(2, 'Give the tee a name').max(40),
+  story: z.string().trim().max(500).optional(),
+  mood: z.string().refine((m) => moods.some((x) => x.name === m), 'Pick a mood'),
+  fit: z.enum(FIT_NAMES),
+  colours: z.array(z.string()).min(1, 'Pick at least one tee colour').max(5),
+  art: z.string().url('Upload the print file first'),
+  badge: z.string().trim().max(30).optional(),
+  photos: z.string().optional().transform((s) => (s ?? '').split('\n').map((x) => x.trim()).filter(Boolean)),
+});
+
+/** Creates a tee that is on sale right away (no drop, no end date). The print file is uploaded from the browser first. */
+export async function createHouseTee(_: unknown, form: FormData): Promise<Result> {
+  const { session, db } = await guard();
+  const parsed = houseSchema.safeParse({
+    artistId: form.get('artistId'), name: form.get('name'), story: form.get('story') || undefined, mood: form.get('mood'),
+    fit: form.get('fit'), colours: form.getAll('colours').map(String), art: form.get('art'),
+    badge: form.get('badge') || undefined, photos: form.get('photos') ?? '',
+  });
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+  const v = parsed.data;
+  const host = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).host;
+  if (new URL(v.art).host !== host) return { ok: false, error: 'Upload the print file with the button.' };
+  if (v.photos.some((u) => !/^https:\/\//.test(u) && !u.startsWith('/'))) return { ok: false, error: 'Photo links must start with https:// or /.' };
+
+  const { data: artist } = await db.from('profiles').select('id').eq('id', v.artistId).eq('is_artist', true).maybeSingle();
+  if (!artist) return { ok: false, error: 'That account is not an artist. Turn on "artist" for it in Admin → Users.' };
+
+  const colours = v.colours.map((name) => COLOURS.find((c) => c.name === name)).filter(Boolean).map((c) => ({ name: c!.name, hex: c!.hex }));
+  if (!colours.length) return { ok: false, error: 'Pick at least one tee colour' };
+  const slug = `${slugify(v.name) || 'tee'}-${crypto.randomBytes(2).toString('hex')}`.slice(0, 80);
+  const { data, error } = await db.from('designs').insert({
+    slug, artist_id: v.artistId, name: v.name, story: v.story || null, category: v.mood, mood: v.mood, fit: v.fit,
+    colours, art_front_url: v.art, originality_confirmed: true, status: 'won', drop_id: null, retail_until: null,
+    badge: v.badge || 'DND STUDIO', photo_urls: v.photos.slice(0, 8), collections: [],
+    reviewed_by: session.user.id, reviewed_at: new Date().toISOString(),
+  }).select('id').single();
+  if (error || !data) return { ok: false, error: error?.message ?? 'Could not save. Try again.' };
+  await audit(session.user.id, 'design.house', data.id, { name: v.name });
+  revalidatePath('/admin/listings'); revalidatePath('/shop');
+  return { ok: true, message: `${v.name} is on sale. Open the shop to see it.` };
 }
