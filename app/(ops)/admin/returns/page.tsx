@@ -4,6 +4,7 @@ import { resolveReturn } from '@/app/actions/admin';
 import { ActionForm, SubmitButton } from '@/components/forms';
 import { timeAgo } from '@/lib/format';
 import type { ReturnRequest } from '@/lib/types';
+import { requireAdmin } from '@/lib/auth';
 
 export const metadata = { title: 'Returns & exchanges' };
 
@@ -12,6 +13,7 @@ const REASONS: Record<ReturnRequest['reason'], string> = {
 };
 
 export default async function ReturnsAdmin({ searchParams }: { searchParams: { status?: string } }) {
+  await requireAdmin(); // Layout checks alone can be skipped by a crafted RSC request.
   const status = ['open', 'approved', 'rejected', 'completed'].includes(searchParams.status ?? '') ? searchParams.status! : 'open';
   const db = createAdminClient();
   const { data } = await db.from('return_requests')

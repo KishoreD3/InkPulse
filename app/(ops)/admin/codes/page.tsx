@@ -4,6 +4,7 @@ import { ActionButton } from '@/components/admin';
 import { ActionForm, Field, SubmitButton } from '@/components/forms';
 import { describeCode } from '@/lib/discounts';
 import { inr, num } from '@/lib/format';
+import { requireAdmin } from '@/lib/auth';
 
 export const metadata = { title: 'Codes & referrals' };
 
@@ -13,6 +14,7 @@ interface CodeRow {
 }
 
 export default async function CodesAdmin() {
+  await requireAdmin(); // Layout checks alone can be skipped by a crafted RSC request.
   const db = createAdminClient();
   const [{ data: codes }, { data: redemptions }, { count: referred }, { count: converted }] = await Promise.all([
     db.from('discount_codes').select('*').is('owner_id', null).order('created_at', { ascending: false }),

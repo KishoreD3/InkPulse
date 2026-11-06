@@ -4,10 +4,12 @@ import { dropLabel, inr, num } from '@/lib/format';
 import { ActionButton, Stat } from '@/components/admin';
 import { reopenDesign, runScheduler } from '@/app/actions/admin';
 import type { Drop, Settings } from '@/lib/types';
+import { requireAdmin } from '@/lib/auth';
 
 export const metadata = { title: 'Admin' };
 
 export default async function AdminDashboard() {
+  await requireAdmin(); // Layout checks alone can be skipped by a crafted RSC request.
   const db = createAdminClient();
   const [{ data: s }, { data: live }] = await Promise.all([
     db.from('settings').select('*').single(),

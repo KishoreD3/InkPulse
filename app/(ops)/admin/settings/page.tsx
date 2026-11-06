@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabase/server';
 import { saveSettings } from '@/app/actions/admin';
 import { ActionForm, Field, SubmitButton } from '@/components/forms';
 import type { Settings } from '@/lib/types';
+import { requireAdmin } from '@/lib/auth';
 
 export const metadata = { title: 'Settings' };
 
@@ -16,6 +17,7 @@ const GROUPS: { title: string; fields: [keyof Settings, string, string?][] }[] =
 ];
 
 export default async function SettingsAdmin() {
+  await requireAdmin(); // Layout checks alone can be skipped by a crafted RSC request.
   const { data } = await createAdminClient().from('settings').select('*').single();
   const s = data as Settings;
   return (
