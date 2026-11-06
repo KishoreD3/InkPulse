@@ -5,12 +5,14 @@ import { markDelivered, markShipped, refundOrder } from '@/app/actions/admin';
 import { ActionButton } from '@/components/admin';
 import { ActionForm, SubmitButton } from '@/components/forms';
 import type { Order } from '@/lib/types';
+import { requireAdmin } from '@/lib/auth';
 
 export const metadata = { title: 'Orders & print' };
 
 const FILTERS = ['printing', 'backed', 'won', 'paid', 'shipped', 'delivered', 'released', 'refunded', 'failed', 'pending'];
 
 export default async function OrdersAdmin({ searchParams }: { searchParams: { status?: string; q?: string } }) {
+  await requireAdmin(); // Layout checks alone can be skipped by a crafted RSC request.
   const status = FILTERS.includes(searchParams.status ?? '') ? searchParams.status! : 'printing';
   const db = createAdminClient();
   let q = db.from('orders').select('*, items:order_items(*, design:designs(slug, name)), shipment:shipments(*)')

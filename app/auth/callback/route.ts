@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import type { EmailOtpType } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { claimReferral } from '@/app/actions/growth';
+import { safeNextPath } from '@/lib/safe-path';
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
@@ -10,8 +11,7 @@ export async function GET(request: NextRequest) {
   // not only the one that asked for the link. Google sign-in comes back with a code instead.
   const tokenHash = url.searchParams.get('token_hash');
   const type = url.searchParams.get('type') as EmailOtpType | null;
-  const nextParam = url.searchParams.get('next') ?? '/';
-  const next = nextParam.startsWith('/') && !nextParam.startsWith('//') ? nextParam : '/';
+  const next = safeNextPath(url.searchParams.get('next'));
   const supabase = createClient();
   const { error } = tokenHash && type
     ? await supabase.auth.verifyOtp({ token_hash: tokenHash, type })

@@ -5,6 +5,7 @@ import { PhotoField } from '@/components/admin-photos';
 import { HouseTeeForm } from '@/components/admin-house-tee';
 import { COLLECTIONS, FITS, moods } from '@/lib/dnd/catalog';
 import { dropLabel } from '@/lib/format';
+import { requireAdmin } from '@/lib/auth';
 
 export const metadata = { title: 'Store listings' };
 
@@ -15,6 +16,7 @@ type Row = {
 };
 
 export default async function Listings({ searchParams }: { searchParams: { show?: string } }) {
+  await requireAdmin(); // Layout checks alone can be skipped by a crafted RSC request.
   const show = searchParams.show === 'all' ? ['approved', 'live', 'won', 'lost'] : ['approved', 'live', 'won'];
   const { data } = await createAdminClient().from('designs')
     .select('id, slug, name, status, mood, fit, collections, photo_urls, mockup_url, care_label, badge, art_front_url, drop:drops!designs_drop_id_fkey(number), artist:profiles!designs_artist_id_fkey(name, handle)')

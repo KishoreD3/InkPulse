@@ -6,10 +6,13 @@ import { ActionForm, SubmitButton } from '@/components/forms';
 import { Tee } from '@/components/Tee';
 import type { Design, Drop, DropTopic } from '@/lib/types';
 import { dateTime } from '@/lib/format';
+import { requireAdmin } from '@/lib/auth';
+import { safeHttpUrl } from '@/lib/safe-path';
 
 export const metadata = { title: 'Submissions' };
 
 export default async function Submissions() {
+  await requireAdmin(); // Layout checks alone can be skipped by a crafted RSC request.
   const db = createAdminClient();
   const [{ data: queue }, { data: drops }] = await Promise.all([
     db.from('designs').select('*, artist:profiles!designs_artist_id_fkey(handle, created_at)').eq('status', 'in_review').order('created_at'),
@@ -43,7 +46,7 @@ export default async function Submissions() {
               ))}
             </div>
             <div className="flex gap-2 flex-wrap">
-              <a href={d.art_front_url} target="_blank" rel="noreferrer" className="chip-off">Open full artwork</a>
+              {safeHttpUrl(d.art_front_url) && <a href={safeHttpUrl(d.art_front_url)!} target="_blank" rel="noreferrer" className="chip-off">Open full artwork</a>}
               <a href={`https://lens.google.com/uploadbyurl?url=${encodeURIComponent(d.art_front_url)}`} target="_blank" rel="noreferrer" className="chip-off">Reverse image search</a>
             </div>
           </div>

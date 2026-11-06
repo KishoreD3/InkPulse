@@ -6,10 +6,12 @@ import { dropPhase } from '@/lib/topics';
 import { ActionButton } from '@/components/admin';
 import { ActionForm, SubmitButton } from '@/components/forms';
 import type { Design, Drop, DropTopic } from '@/lib/types';
+import { requireAdmin } from '@/lib/auth';
 
 export const metadata = { title: 'Drops' };
 
 export default async function DropsAdmin() {
+  await requireAdmin(); // Layout checks alone can be skipped by a crafted RSC request.
   const db = createAdminClient();
   const [{ data: drops }, { data: topicRows }, { data: subs }, { data: approved }] = await Promise.all([
     db.from('drops').select('*').order('number', { ascending: false }).limit(12),

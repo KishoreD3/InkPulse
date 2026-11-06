@@ -3,6 +3,7 @@ import { SignInView } from '@/components/dnd/views/SignIn';
 import { getStoreSession } from '@/lib/dnd/session';
 import { isConfigured } from '@/lib/env';
 import { getSignInProviders } from '@/lib/auth-providers';
+import { safeNextPath } from '@/lib/safe-path';
 
 export const metadata = { title: 'Sign in' };
 
@@ -12,8 +13,7 @@ const ERRORS: Record<string, string> = {
 };
 
 export default async function SignInPage({ searchParams }: { searchParams: { next?: string; error?: string } }) {
-  const raw = searchParams.next ?? '/account';
-  const next = raw.startsWith('/') && !raw.startsWith('//') ? raw : '/account';
+  const next = safeNextPath(searchParams.next, '/account');
   if (await getStoreSession()) redirect(next);
   const error = searchParams.error ? ERRORS[searchParams.error] ?? 'Sign-in failed. Please try again.' : null;
   const configured = isConfigured();

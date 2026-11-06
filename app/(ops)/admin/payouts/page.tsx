@@ -3,10 +3,12 @@ import { inr } from '@/lib/format';
 import { recordArtistPayout, setKyc } from '@/app/actions/admin';
 import { ActionButton } from '@/components/admin';
 import { ActionForm, SubmitButton } from '@/components/forms';
+import { requireAdmin } from '@/lib/auth';
 
 export const metadata = { title: 'Artist payouts' };
 
 export default async function PayoutsAdmin() {
+  await requireAdmin(); // Layout checks alone can be skipped by a crafted RSC request.
   const db = createAdminClient();
   const { data: earnings } = await db.from('artist_earnings').select('artist_id, amount').in('status', ['pending', 'payable']);
   const due = new Map<string, number>();

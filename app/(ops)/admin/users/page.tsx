@@ -3,10 +3,12 @@ import { dateShort } from '@/lib/format';
 import { setUserFlag } from '@/app/actions/admin';
 import { ActionButton } from '@/components/admin';
 import type { Profile } from '@/lib/types';
+import { requireAdmin } from '@/lib/auth';
 
 export const metadata = { title: 'Users' };
 
 export default async function UsersAdmin({ searchParams }: { searchParams: { q?: string } }) {
+  await requireAdmin(); // Layout checks alone can be skipped by a crafted RSC request.
   const db = createAdminClient();
   let q = db.from('profiles').select('*').order('created_at', { ascending: false }).limit(50);
   if (searchParams.q) q = q.ilike('handle', `%${searchParams.q.replace(/[%_]/g, '')}%`);

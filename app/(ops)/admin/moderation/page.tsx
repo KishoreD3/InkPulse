@@ -3,10 +3,12 @@ import { createAdminClient } from '@/lib/supabase/server';
 import { dateShort } from '@/lib/format';
 import { hideReview, resolveReport } from '@/app/actions/admin';
 import { ActionButton } from '@/components/admin';
+import { requireAdmin } from '@/lib/auth';
 
 export const metadata = { title: 'Moderation' };
 
 export default async function Moderation() {
+  await requireAdmin(); // Layout checks alone can be skipped by a crafted RSC request.
   const db = createAdminClient();
   const { data } = await db.from('reports').select('*, reporter:profiles!reports_reporter_id_fkey(handle)').eq('status', 'open').order('created_at').limit(100);
   const reports = (data ?? []) as { id: string; target_type: string; target_id: string; reason: string; created_at: string; reporter: { handle: string } }[];

@@ -1,12 +1,14 @@
 import { createAdminClient } from '@/lib/supabase/server';
 import { dropLabel, inr } from '@/lib/format';
 import type { Drop } from '@/lib/types';
+import { requireAdmin } from '@/lib/auth';
 
 export const metadata = { title: 'Money' };
 
 type Fin = { units: number; orders: number; revenue: number; gst: number; product_cost: number; shipping_cost: number; gateway_fees: number; artist_share: number; net_profit: number };
 
 export default async function MoneyAdmin() {
+  await requireAdmin(); // Layout checks alone can be skipped by a crafted RSC request.
   const db = createAdminClient();
   const [{ data: drops }, { data: s }] = await Promise.all([
     db.from('drops').select('*').in('status', ['locked', 'printing', 'shipped']).order('number', { ascending: false }).limit(12),
